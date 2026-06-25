@@ -1,0 +1,839 @@
+{
+  "url": "https://gateway.quark.cn/api/v1?position=kaishezhuanye&businessPath=gaokao_college_non_first&uc_param_str=dsdnfrpfbivesscpgimibtbmnijblauputogpintnwktprchmtkpst&chid=1782273661615-012663982968258991-8686998111020712",
+  "position": "kaishezhuanye",
+  "body": {
+    "status": 0,
+    "code": "00000",
+    "msg": "成功",
+    "data": {
+      "exceptional_major": {
+        "exceptional_major_count": {
+          "items": [
+            {
+              "major": "双一流学科",
+              "count": "2"
+            },
+            {
+              "major": "国家重点学科",
+              "count": "2"
+            },
+            {
+              "major": "A+类学科",
+              "count": "1"
+            }
+          ]
+        },
+        "exceptional_major_detail": {
+          "items": [
+            {
+              "major": "双一流学科",
+              "detail": "第二轮_信息与通信工程|第二轮_计算机科学与技术|第一轮_信息与通信工程|第一轮_计算机科学与技术"
+            },
+            {
+              "major": "学科评估",
+              "detail": "A+_信息与通信工程|A_计算机科学与技术|A-_电子科学与技术|B+_软件工程|B_管理科学与工程|B-_光学工程|B-_控制科学与工程|B-_工商管理|C+_机械工程|C+_公共管理|C-_生物医学工程"
+            },
+            {
+              "major": "国家重点学科",
+              "detail": "一级学科_电子科学与技术|一级学科_信息与通信工程"
+            }
+          ]
+        },
+        "exceptional_major_detail_new": {
+          "双一流学科": {
+            "item": [
+              {
+                "name": "信息与通信工程",
+                "major_class": "工学",
+                "round": "第二轮",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "计算机科学与技术",
+                "major_class": "工学",
+                "round": "第二轮",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "信息与通信工程",
+                "major_class": "工学",
+                "round": "第一轮",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "计算机科学与技术",
+                "major_class": "工学",
+                "round": "第一轮",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              }
+            ]
+          },
+          "学科评估": {
+            "item": [
+              {
+                "name": "信息与通信工程",
+                "major_class": "工学",
+                "score": "A+",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "计算机科学与技术",
+                "major_class": "工学",
+                "score": "A",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "电子科学与技术",
+                "major_class": "工学",
+                "score": "A-",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "软件工程",
+                "major_class": "工学",
+                "score": "B+",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "管理科学与工程",
+                "major_class": "管理学",
+                "score": "B",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "光学工程",
+                "major_class": "工学",
+                "score": "B-",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "控制科学与工程",
+                "major_class": "工学",
+                "score": "B-",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "工商管理",
+                "major_class": "管理学",
+                "score": "B-",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "机械工程",
+                "major_class": "工学",
+                "score": "C+",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "公共管理",
+                "major_class": "管理学",
+                "score": "C+",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              },
+              {
+                "name": "生物医学工程",
+                "major_class": "工学",
+                "score": "C-",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              }
+            ]
+          },
+          "国家重点学科": {
+            "item": [
+              {
+                "name": "电子科学与技术",
+                "major_class": "工学",
+                "rank_class": "一级学科",
+                "has_gx_zy": "1",
+                "is_new": "0"
+              },
+              {
+                "name": "信息与通信工程",
+                "major_class": "工学",
+                "rank_class": "一级学科",
+                "has_gx_zy": "0",
+                "is_new": "0"
+              }
+            ]
+          }
+        }
+      },
+      "特色专业": {
+        "number": "10",
+        "major_count": "10",
+        "items": {
+          "item": [
+            {
+              "name": "通信工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "信息工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "计算机科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "网络工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "物联网工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电子商务",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "管理学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "机械工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "信息安全",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "应用物理学",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "理学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电子科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工学",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            }
+          ]
+        }
+      },
+      "工学": {
+        "number": "24",
+        "major_count": "24",
+        "items": {
+          "item": [
+            {
+              "name": "通信工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "信息工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "计算机科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "网络工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "物联网工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "机械工程",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "机械类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "信息安全",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电子科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电子信息工程",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "数字媒体技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电信工程及管理",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "自动化",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "自动化类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "软件工程",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "人工智能",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "机器人工程",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "自动化类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "网络空间安全",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "智能交互设计",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "机械类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "智能科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "密码科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "空间信息与数字技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "电子信息科学与技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "光电信息科学与工程",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "数据科学与大数据技术",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "计算机类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "集成电路设计与集成系统",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子信息类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            }
+          ]
+        }
+      },
+      "理学": {
+        "number": "3",
+        "major_count": "3",
+        "items": {
+          "item": [
+            {
+              "name": "应用物理学",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "物理学类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "数学与应用数学",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "数学类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "信息与计算科学",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "数学类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            }
+          ]
+        }
+      },
+      "经济学": {
+        "number": "1",
+        "major_count": "1",
+        "items": {
+          "item": {
+            "name": "金融科技",
+            "is_key_major": "否",
+            "is_special_major": "否",
+            "is_doublehigh": "否",
+            "is_gugan": "否",
+            "is_shifan": "否",
+            "batch": "本科",
+            "major_class": "金融学类",
+            "year": "四",
+            "has_gx_zy": "1",
+            "is_new": "0"
+          }
+        }
+      },
+      "管理学": {
+        "number": "4",
+        "major_count": "4",
+        "items": {
+          "item": [
+            {
+              "name": "电子商务",
+              "is_key_major": "否",
+              "is_special_major": "是",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "电子商务类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "工商管理",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "工商管理类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "公共事业管理",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "公共管理类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "大数据管理与应用",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "管理科学与工程类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            }
+          ]
+        }
+      },
+      "法学": {
+        "number": "1",
+        "major_count": "1",
+        "items": {
+          "item": {
+            "name": "法学",
+            "is_key_major": "否",
+            "is_special_major": "否",
+            "is_doublehigh": "否",
+            "is_gugan": "否",
+            "is_shifan": "否",
+            "batch": "本科",
+            "major_class": "法学类",
+            "year": "四",
+            "has_gx_zy": "1",
+            "is_new": "0"
+          }
+        }
+      },
+      "文学": {
+        "number": "2",
+        "major_count": "2",
+        "items": {
+          "item": [
+            {
+              "name": "网络与新媒体",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "新闻传播学类",
+              "year": "四",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            },
+            {
+              "name": "英语",
+              "is_key_major": "否",
+              "is_special_major": "否",
+              "is_doublehigh": "否",
+              "is_gugan": "否",
+              "is_shifan": "否",
+              "batch": "本科",
+              "major_class": "外国语言文学类",
+              "year": "四年/<br/>五",
+              "has_gx_zy": "1",
+              "is_new": "0"
+            }
+          ]
+        }
+      },
+      "艺术学": {
+        "number": "1",
+        "major_count": "1",
+        "items": {
+          "item": {
+            "name": "数字媒体艺术",
+            "is_key_major": "否",
+            "is_special_major": "否",
+            "is_doublehigh": "否",
+            "is_gugan": "否",
+            "is_shifan": "否",
+            "batch": "本科",
+            "major_class": "设计学类",
+            "year": "四",
+            "has_gx_zy": "1",
+            "is_new": "0"
+          }
+        }
+      },
+      "has_zk": "0",
+      "sc_config": {
+        "tab_list": "[\"basic\", \"scorelines\", \"major\", \"life\", \"qa\", \"employment\", \"image\"]",
+        "bg_color": "1f4e8c,234777,1f4e8c,234777,fffff"
+      }
+    }
+  }
+}

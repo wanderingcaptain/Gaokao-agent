@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>志愿推荐结果 — AI 高考志愿填报助手</title>
+  <meta name="description" content="基于你的个人画像，AI 为你精准推荐冲稳保三梯度院校，助力志愿填报决策。" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Noto Sans SC', sans-serif; }
+    body { background: linear-gradient(135deg, #0f0c29 0%, #1a1040 40%, #0d1b3e 100%); height: 100vh; overflow: hidden; }
+    .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
+    .gradient-text { background: linear-gradient(90deg, #818cf8, #c084fc, #f472b6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    /* 冲稳保 */
+    .tier-冲 { background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.4); color:#fca5a5; }
+    .tier-稳 { background:rgba(234,179,8,.15); border:1px solid rgba(234,179,8,.4); color:#fde68a; }
+    .tier-保 { background:rgba(34,197,94,.15); border:1px solid rgba(34,197,94,.4); color:#86efac; }
+    .tier-分析中 { background:rgba(100,116,139,.15); border:1px solid rgba(100,116,139,.3); color:#94a3b8; }
+
+    /* 卡片 */
+    .uni-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); transition:all .2s; cursor:pointer; }
+    .uni-card:hover { background:rgba(129,140,248,.08); border-color:rgba(129,140,248,.3); transform:translateY(-2px); box-shadow:0 8px 30px rgba(99,102,241,.15); }
+    .uni-card.selected { border-color:#818cf8; background:rgba(129,140,248,.12); }
+    .uni-card.ai-updated { animation: cardPulse 0.6s ease; }
+    @keyframes cardPulse { 0%{box-shadow:0 0 0 0 rgba(129,140,248,.5)} 70%{box-shadow:0 0 0 8px rgba(129,140,248,0)} 100%{box-shadow:none} }
+
+    /* AI 进度横幅 */
+    #ai-banner { background:linear-gradient(90deg,rgba(99,102,241,.2),rgba(139,92,246,.2)); border-bottom:1px solid rgba(129,140,248,.2); transition:all .4s; overflow:hidden; }
+    #ai-banner.done { max-height:0; padding:0; opacity:0; }
+    .ai-progress-bar { height:3px; background:linear-gradient(90deg,#818cf8,#c084fc); transition:width .5s ease; border-radius:2px; }
+
+    /* Tab */
+    .tier-tab { padding:8px 20px; border-radius:12px; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; color:rgba(226,232,240,.5); }
+    .tier-tab.active { background:rgba(129,140,248,.2); color:#c7d2fe; }
+    .tier-tab:hover:not(.active) { color:rgba(226,232,240,.8); }
+
+    /* 加载遮罩 */
+    .loading-overlay { position:absolute; inset:0; background:rgba(15,12,41,.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; border-radius:inherit; z-index:10; }
+    .spinner { width:36px; height:36px; border:3px solid rgba(129,140,248,.3); border-top-color:#818cf8; border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to{ transform:rotate(360deg); } }
+
+    .stat-item { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 14px; }
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-track { background:transparent; }
+    ::-webkit-scrollbar-thumb { background:rgba(129,140,248,.3); border-radius:3px; }
+
+    /* AI 报告按钮 */
+    .ai-report-btn { background:linear-gradient(135deg,rgba(99,102,241,.3),rgba(139,92,246,.3)); border:1px solid rgba(129,140,248,.4); color:#c7d2fe; transition:all .2s; }
+    .ai-report-btn:hover { background:linear-gradient(135deg,rgba(99,102,241,.5),rgba(139,92,246,.5)); transform:translateY(-1px); }
+    .ai-report-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  </style>
+</head>
+<body class="text-slate-200">
+<div class="h-screen flex flex-col overflow-hidden">
+
+  <!-- ════ 顶部导航 ════ -->
+  <header class="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">← 重新填写</a>
+      <span class="text-slate-600">|</span>
+      <span class="gradient-text font-bold text-lg">AI 志愿推荐结果</span>
+    </div>
+    <div id="profile-badge" class="glass rounded-full px-4 py-1.5 text-sm text-slate-300 hidden"></div>
+  </header>
+
+  <!-- ════ AI 进度横幅 ════ -->
+  <div id="ai-banner" class="px-6 py-3 flex items-center gap-4">
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <div class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></div>
+      <span class="text-indigo-300 text-sm font-medium">🤖 AI 分析中</span>
+    </div>
+    <div class="flex-1">
+      <div id="ai-banner-msg" class="text-xs text-slate-400 mb-1">正在初始化...</div>
+      <div class="w-full bg-white/5 rounded-full h-[3px]">
+        <div id="ai-progress-bar" class="ai-progress-bar" style="width:5%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ 主体布局 ════ -->
+  <main class="flex-1 flex min-h-0 overflow-hidden">
+
+    <!-- 左侧：候选列表 -->
+    <aside class="w-full md:w-96 lg:w-[420px] flex flex-col border-r border-white/10 flex-shrink-0 min-h-0">
+      <div class="px-5 pt-5 pb-3 flex-shrink-0">
+        <div class="flex gap-3 text-sm mb-4">
+          <span class="tier-冲 px-3 py-1 rounded-full font-semibold" id="count-冲">冲 -</span>
+          <span class="tier-稳 px-3 py-1 rounded-full font-semibold" id="count-稳">稳 -</span>
+          <span class="tier-保 px-3 py-1 rounded-full font-semibold" id="count-保">保 -</span>
+          <span id="count-pending" class="text-slate-500 text-xs self-center"></span>
+        </div>
+        <div class="flex gap-1">
+          <button class="tier-tab active" id="tab-all" onclick="filterByTier('all')">全部</button>
+          <button class="tier-tab" id="tab-冲" onclick="filterByTier('冲')">🚀 冲</button>
+          <button class="tier-tab" id="tab-稳" onclick="filterByTier('稳')">🎯 稳</button>
+          <button class="tier-tab" id="tab-保" onclick="filterByTier('保')">🛡️ 保</button>
+        </div>
+      </div>
+      <div id="candidates-list" class="flex-1 overflow-y-auto px-4 pb-4 space-y-2"></div>
+    </aside>
+
+    <!-- 右侧：详情面板 -->
+    <section class="flex-1 overflow-y-auto p-6 relative min-h-0" id="detail-section">
+      <div id="detail-empty" class="h-full flex flex-col items-center justify-center text-center">
+        <div class="text-6xl mb-4">👈</div>
+        <h3 class="text-xl font-semibold text-white mb-2">点击左侧院校查看录取趋势</h3>
+        <p class="text-slate-400 text-sm max-w-sm">从本地数据库即时加载近年录取位次变化图，无需等待 AI</p>
+      </div>
+      <div id="detail-panel" class="hidden">
+        <!-- 详情内容动态注入 -->
+        <div id="detail-content"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// 数据读取
+// ════════════════════════════════════════
+const uuid       = sessionStorage.getItem('gaokao_uuid') || '';
+let   candidates = JSON.parse(sessionStorage.getItem('gaokao_candidates') || '[]');
+const profileSum = JSON.parse(sessionStorage.getItem('gaokao_profile_summary') || '{}');
+let   aiDone     = sessionStorage.getItem('gaokao_ai_done') === 'true';
+
+let currentFilter = 'all';
+let selectedCardIndex = null;
+let selectedCardEl    = null;
+let chartInstance     = null;
+
+// 显示个人信息徽章
+if (profileSum.province) {
+  const badge = document.getElementById('profile-badge');
+  badge.textContent = `${profileSum.province} | ${profileSum.subject_type} | ${profileSum.gaokao_score}分 | 第${(profileSum.province_rank||0).toLocaleString()}名`;
+  badge.classList.remove('hidden');
+}
+
+// ════════════════════════════════════════
+// 候选列表渲染
+// ════════════════════════════════════════
+function tierBadge(tier) {
+  if (!tier) return `<span class="tier-分析中 text-xs px-2.5 py-1 rounded-full font-bold ml-2 flex-shrink-0">分析中</span>`;
+  return `<span class="tier-${tier} text-xs px-2.5 py-1 rounded-full font-bold ml-2 flex-shrink-0">${tier}</span>`;
+}
+
+function renderCard(c, i) {
+  // 取2025年数据，若无则取最新年
+  const history = c.admission_history || [];
+  const latestHistory = history.length > 0
+    ? (history.find(h => h.year === 2025) || history[history.length - 1])
+    : null;
+  const latestYear = latestHistory?.year || '—';
+
+  return `
+  <div class="uni-card rounded-2xl p-3" id="card-${i}" onclick="selectCard(${i}, this)">
+    <div class="flex items-start justify-between mb-1.5">
+      <div class="flex-1 min-w-0">
+        <div class="font-bold text-white text-sm truncate">${c.university_name}</div>
+      </div>
+      ${tierBadge(c.tier)}
+    </div>
+    <div class="text-xs text-indigo-300 mb-2 font-medium truncate">${c.major_name}</div>
+    <div class="flex gap-3 text-xs text-slate-400">
+      <span>${latestYear}年 · 最低分 <span class="text-white font-semibold">${latestHistory?.min_score || '—'}</span></span>
+      <span>位次 <span class="text-white font-semibold">${latestHistory?.min_rank?.toLocaleString() || '—'}</span></span>
+    </div>
+  </div>`;
+}
+
+function getFiltered() {
+  return currentFilter === 'all' ? candidates : candidates.filter(c => c.tier === currentFilter);
+}
+
+function renderList() {
+  const list = document.getElementById('candidates-list');
+  const filtered = getFiltered();
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="text-center py-16 text-slate-500"><div class="text-4xl mb-3">🔍</div><div class="text-sm">${candidates.length === 0 ? '暂无候选数据' : '该梯度暂无结果'}</div></div>`;
+    return;
+  }
+  // 用全局索引映射，保证 selectCard 能找到正确候选
+  list.innerHTML = filtered.map((c) => {
+    const globalIdx = candidates.indexOf(c);
+    return renderCard(c, globalIdx);
+  }).join('');
+}
+
+function updateCounts() {
+  ['冲','稳','保'].forEach(tier => {
+    const cnt = candidates.filter(c => c.tier === tier).length;
+    document.getElementById(`count-${tier}`).textContent = `${tier} ${cnt}`;
+  });
+  const pending = candidates.filter(c => !c.tier).length;
+  document.getElementById('count-pending').textContent = pending > 0 ? `(${pending}个分析中)` : '';
+}
+
+function filterByTier(tier) {
+  currentFilter = tier;
+  document.querySelectorAll('.tier-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${tier === 'all' ? 'all' : tier}`).classList.add('active');
+  renderList();
+}
+
+// 初始渲染
+updateCounts();
+renderList();
+
+// ════════════════════════════════════════
+// AI 增强 SSE（如果 AI 还没完成，重新订阅）
+// ════════════════════════════════════════
+const batchProgress = { rule_engine: 8, llm_enriching: 50, llm_classifying: 90, llm_retry: 55 };
+
+function setBannerMsg(msg, pct) {
+  document.getElementById('ai-banner-msg').textContent = msg;
+  if (pct !== undefined) document.getElementById('ai-progress-bar').style.width = pct + '%';
+}
+
+function hideBanner() {
+  const banner = document.getElementById('ai-banner');
+  banner.classList.add('done');
+}
+
+async function subscribeAI() {
+  if (!uuid) return;
+  setBannerMsg('重新连接 AI 分析流...', 10);
+
+  let response;
+  try {
+    response = await fetch('/api/v1/recommend', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uuid}),
+    });
+  } catch(e) {
+    setBannerMsg('AI 连接失败，结果为数据库原始数据', 100);
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = '';
+  let batchsDone = 0;
+
+  try {
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, {stream: true});
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) { currentEvent = line.slice(7).trim(); continue; }
+        if (line.startsWith('data: ')) {
+          try {
+            const parsed = JSON.parse(line.slice(6));
+
+            if (currentEvent === 'preliminary_result') {
+              // 已经在这个页面，忽略 preliminary（数据相同）
+
+            } else if (currentEvent === 'progress') {
+              const pct = batchProgress[parsed.stage] || 40;
+              setBannerMsg(parsed.message, pct);
+
+            } else if (currentEvent === 'result') {
+              // AI 全部完成，用最终数据更新候选列表
+              const enriched = parsed.candidates || [];
+              enriched.forEach((ec, i) => {
+                if (i < candidates.length) {
+                  candidates[i].tier         = ec.tier;
+                  candidates[i].reason       = ec.reason;
+                  candidates[i].enriched_data = ec.enriched_data;
+                  // 高亮更新过的卡片
+                  const el = document.getElementById(`card-${i}`);
+                  if (el) { el.classList.add('ai-updated'); setTimeout(()=>el.classList.remove('ai-updated'), 700); }
+                }
+              });
+              sessionStorage.setItem('gaokao_candidates', JSON.stringify(candidates));
+              sessionStorage.setItem('gaokao_ai_done', 'true');
+              updateCounts();
+              renderList();
+              setBannerMsg('AI 分析完成 ✓', 100);
+              setTimeout(hideBanner, 2000);
+              reader.cancel();
+              return;
+            }
+          } catch(_) {}
+          currentEvent = '';
+        }
+      }
+    }
+  } catch(e) {
+    setBannerMsg('AI 分析中断，显示数据库原始结果', 100);
+  }
+}
+
+if (!aiDone) {
+  subscribeAI();
+} else {
+  hideBanner();
+}
+
+// ════════════════════════════════════════
+// 点击卡片 → 本地 DB 折线图
+// ════════════════════════════════════════
+async function selectCard(index, cardEl) {
+  if (selectedCardEl) selectedCardEl.classList.remove('selected');
+  cardEl.classList.add('selected');
+  selectedCardEl = cardEl;
+  selectedCardIndex = index;
+
+  const c = candidates[index];
+  document.getElementById('detail-empty').classList.add('hidden');
+  const panel   = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+  panel.classList.remove('hidden');
+
+  try {
+    const history = c.admission_history || [];
+    renderDetailPanel(c, history);
+  } catch(e) {
+    content.innerHTML = `
+      <div class="glass rounded-2xl p-8 text-center">
+        <div class="text-4xl mb-3">⚠️</div>
+        <div class="text-red-400 font-semibold mb-2">历史数据展示失败</div>
+        <div class="text-slate-400 text-sm">${e.message}</div>
+      </div>`;
+  }
+}
+
+// ════════════════════════════════════════
+// 渲染详情面板（本地数据 + 折线图 + AI 报告按钮）
+// ════════════════════════════════════════
+function renderDetailPanel(c, history) {
+  const content = document.getElementById('detail-content');
+  const userRank = profileSum.province_rank || 0;
+
+  const tierClass = c.tier ? `tier-${c.tier}` : 'tier-分析中';
+  const tierLabel = c.tier || '分析中';
+
+  // 统计数据
+  const years    = history.map(h => h.year);
+  const minRanks = history.map(h => h.min_rank);
+  const minScores = history.map(h => h.min_score);
+
+  // 位次趋势文字分析
+  let trendNote = '';
+  if (minRanks.length >= 2) {
+    const first = minRanks[0], last = minRanks[minRanks.length - 1];
+    if (last < first) trendNote = '📈 录取位次逐年降低（竞争加剧）';
+    else if (last > first) trendNote = '📉 录取位次逐年升高（竞争趋缓）';
+    else trendNote = '➡️ 录取位次较为稳定';
+  }
+
+  const latestRank = minRanks[minRanks.length - 1];
+  const rankGap = userRank && latestRank ? userRank - latestRank : null;
+
+  content.innerHTML = `
+    <!-- 院校标题 -->
+    <div class="glass rounded-2xl p-5 mb-4">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h2 class="text-xl font-bold text-white">${c.university_name}</h2>
+          <div class="text-sm text-slate-400 mt-1">${c.city} · ${c.university_type} · ${c.enrollment_type}</div>
+        </div>
+        <span class="${tierClass} text-sm px-3 py-1 rounded-full font-bold">${tierLabel}</span>
+      </div>
+      <div class="text-indigo-300 font-medium">${c.major_name}</div>
+      ${c.reason ? `<div class="mt-3 text-sm text-slate-400 leading-relaxed border-t border-white/10 pt-3">${c.reason}</div>` : ''}
+    </div>
+
+    <!-- 关键数据 -->
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="stat-item text-center">
+        <div class="text-slate-400 text-xs mb-1">最新最低位次</div>
+        <div class="text-white font-bold text-lg">${latestRank?.toLocaleString() || '—'}</div>
+        <div class="text-slate-500 text-xs">${years[years.length-1] || ''}年</div>
+      </div>
+      <div class="stat-item text-center">
+        <div class="text-slate-400 text-xs mb-1">考生位次差</div>
+        <div class="font-bold text-lg ${rankGap !== null ? (rankGap > 0 ? 'text-red-400' : 'text-green-400') : 'text-slate-400'}">
+          ${rankGap !== null ? (rankGap > 0 ? '+' : '') + rankGap.toLocaleString() : '—'}
+        </div>
+        <div class="text-slate-500 text-xs">${rankGap > 0 ? '考生位次更差' : rankGap < 0 ? '考生位次更好' : ''}</div>
+      </div>
+      <div class="stat-item text-center">
+        <div class="text-slate-400 text-xs mb-1">有数据年份</div>
+        <div class="text-white font-bold text-lg">${history.length}</div>
+        <div class="text-slate-500 text-xs">年</div>
+      </div>
+    </div>
+
+    <!-- 折线图 -->
+    <div class="glass rounded-2xl p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-semibold text-white">📊 历年录取最低位次变化</h3>
+        <span class="text-xs text-slate-500">${trendNote}</span>
+      </div>
+      <div id="rank-chart" style="height:220px;width:100%;"></div>
+    </div>
+
+    <!-- 历年数据表格 -->
+    <div class="glass rounded-2xl p-4 mb-5">
+      <h3 class="text-sm font-semibold text-white mb-3">📋 历年录取明细</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left">
+          <thead>
+            <tr class="text-slate-500 border-b border-white/10">
+              <th class="pb-2 pr-4">年份</th>
+              <th class="pb-2 pr-4">最低位次</th>
+              <th class="pb-2 pr-4">最低分</th>
+              <th class="pb-2 pr-4">平均分</th>
+              <th class="pb-2">招生人数</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${history.map(h => `
+            <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+              <td class="py-2 pr-4 text-slate-300 font-medium">${h.year}</td>
+              <td class="py-2 pr-4 ${userRank && h.min_rank && Math.abs(h.min_rank - userRank) <= 1000 ? 'text-indigo-300 font-semibold' : 'text-slate-300'}">${h.min_rank?.toLocaleString() || '—'}</td>
+              <td class="py-2 pr-4 text-slate-300">${h.min_score || '—'}</td>
+              <td class="py-2 pr-4 text-slate-300">${h.avg_score || '—'}</td>
+              <td class="py-2 text-slate-300">${h.enrollment_count || '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-xs text-slate-600 mt-2">* 蓝色高亮行表示该年位次与考生位次相差在1000名以内</div>
+    </div>
+
+    <!-- AI 报告按钮 -->
+    <div class="glass rounded-2xl p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm font-semibold text-white">🤖 AI 深度分析报告</div>
+          <div class="text-xs text-slate-400 mt-1">结合考生画像，联网查询该专业就业前景、学校优劣势、报考建议</div>
+        </div>
+        <button id="ai-report-btn" class="ai-report-btn rounded-xl px-4 py-2 text-sm font-medium flex-shrink-0 ml-4"
+          onclick="generateAIReport()">
+          生成报告
+        </button>
+      </div>
+      <div id="ai-report-content" class="mt-4 hidden"></div>
+    </div>
+  `;
+
+  // 渲染 ECharts 折线图
+  if (chartInstance) chartInstance.dispose();
+  chartInstance = echarts.init(document.getElementById('rank-chart'), 'dark');
+  chartInstance.setOption({
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'axis', formatter: params => {
+      let str = `<b>${params[0].axisValue}年</b><br/>`;
+      params.forEach(p => { str += `${p.marker}${p.seriesName}: ${p.value?.toLocaleString() || '无数据'}<br/>`; });
+      return str;
+    }},
+    legend: { data: ['最低录取位次', '考生位次'], textStyle: {color:'#94a3b8'}, bottom: 0 },
+    grid: { left:50, right:20, top:15, bottom:40 },
+    xAxis: { type:'category', data: years, axisLabel:{color:'#94a3b8'}, axisLine:{lineStyle:{color:'rgba(255,255,255,.1)'}} },
+    yAxis: { type:'value', inverse:true, name:'位次', nameTextStyle:{color:'#94a3b8'},
+      axisLabel:{ color:'#94a3b8', formatter: v => v.toLocaleString() },
+      splitLine:{ lineStyle:{color:'rgba(255,255,255,.06)'} }
+    },
+    series: [
+      { name:'最低录取位次', type:'line', data: minRanks, smooth:true,
+        lineStyle:{color:'#818cf8',width:2.5},
+        itemStyle:{color:'#818cf8'},
+        areaStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:'rgba(129,140,248,.25)'},{offset:1,color:'rgba(129,140,248,.02)'}]}},
+        markPoint:{ data:[{type:'min',name:'最低位次',itemStyle:{color:'#34d399'}},{type:'max',name:'最高位次',itemStyle:{color:'#f87171'}}] }
+      },
+      { name:'考生位次', type:'line', data: years.map(()=>userRank), lineStyle:{color:'#f472b6',type:'dashed',width:1.5},
+        symbol:'none', itemStyle:{color:'#f472b6'} }
+    ]
+  });
+  window.addEventListener('resize', () => chartInstance?.resize());
+}
+
+// ════════════════════════════════════════
+// 生成 AI 报告
+// ════════════════════════════════════════
+async function generateAIReport() {
+  const c       = candidates[selectedCardIndex];
+  if (!c) return;
+  const btn     = document.getElementById('ai-report-btn');
+  const box     = document.getElementById('ai-report-content');
+  btn.disabled  = true;
+  btn.textContent = '生成中...';
+  box.classList.remove('hidden');
+  box.innerHTML = `
+    <div class="flex items-center gap-3 py-4">
+      <div class="spinner"></div>
+      <span class="text-indigo-300 text-sm">AI 正在联网生成深度报告（约1-3分钟）...</span>
+    </div>`;
+
+  try {
+    const res = await fetch('/api/v1/detail/ai-report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ uuid, university_id: c.university_id, major_name: c.major_name, university_data: c }),
+    });
+    
+    if (!res.ok) {
+        let errMsg = `服务器错误 (${res.status})`;
+        try {
+            const errJson = await res.json();
+            if (errJson.detail) errMsg = errJson.detail;
+        } catch(e) {}
+        throw new Error(errMsg);
+    }
+    
+    const json = await res.json();
+    if (json.code !== 200) throw new Error(json.detail || '报告生成失败');
+
+    const { html, chartConfig } = json.data;
+    box.innerHTML = `<div class="border-t border-white/10 pt-4">${html}</div>`;
+
+    if (chartConfig) {
+      const chartEl = document.getElementById('dynamic-chart-container');
+      if (chartEl) {
+        const aiChart = echarts.init(chartEl, 'dark');
+        aiChart.setOption(chartConfig);
+        window.addEventListener('resize', () => aiChart.resize());
+      }
+    }
+  } catch(e) {
+    box.innerHTML = `<div class="text-red-400 text-sm py-3">报告生成失败：${e.message}</div>`;
+    btn.disabled = false;
+    btn.textContent = '重新生成';
+    return;
+  }
+  btn.textContent = '已生成 ✓';
+}
+</script>
+</body>
+</html>

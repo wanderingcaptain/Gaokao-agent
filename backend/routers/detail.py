@@ -1,0 +1,83 @@
+"""
+路由：院校详情
+  - GET  /detail/history   — 查本地 DB，返回历年录取数据（无 AI，极快）
+  - POST /detail/ai-report — 调用 LLM 生成深度分析报告（原 /detail 端点）
+"""
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from database.models import get_db, AdmissionRecord
+from services.profile_service import get_profile
+from services.llm_service import generate_detail_ui
+
+router = APIRouter(prefix="/api/v1", tags=["detail"])
+
+
+# ─── GET /detail/history ─────────────────────────────────────────────────────
+
+@router.get("/detail/history")
+async def get_history(
+    university_id:   str = Query(...),
+    major_name:      str = Query(...),
+    enrollment_type: str = Query(...),
+    province:        str = Query(...),
+    subject_type:    str = Query(...),
+):
+    """查询本地 DB 中该学校+专业+省份的近五年录取数据，无 AI 调用，响应极快。"""
+    db_gen = get_db()
+    db: Session = next(db_gen)
+    try:
+        rows = (
+            db.query(AdmissionRecord)
+            .filter(
+                AdmissionRecord.university_id   == university_id,
+                AdmissionRecord.major_name      == major_name,
+                AdmissionRecord.enrollment_type == enrollment_type,
+                AdmissionRecord.province        == province,
+                AdmissionRecord.subject_type    == subject_type,
+            )
+            .order_by(AdmissionRecord.year.asc())
+            .all()
+        )
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+
+    history = [
+        {
+            "year":             r.year,
+            "min_rank":         r.min_rank,
+            "min_score":        r.min_score,
+            "max_score":        r.max_score,
+            "avg_score":        r.avg_score,
+            "enrollment_count": r.enrollment_count,
+            "score_diff":       r.score_diff,
+        }
+        for r in rows
+    ]
+    return {"code": 200, "data": {"history": history}}
+
+
+# ─── POST /detail/ai-report ───────────────────────────────────────────────────
+
+class AIReportRequest(BaseModel):
+    uuid:            str
+    university_id:   str
+    major_name:      str
+    university_data: dict
+
+
+@router.post("/detail/ai-report")
+async def get_ai_report(body: AIReportRequest):
+    """调用 LLM 生成院校专业深度分析报告（耗时较长）"""
+    profile = get_profile(body.uuid)
+    if not profile:
+        raise HTTPException(status_code=404, detail="用户画像不存在")
+    try:
+        result = await generate_detail_ui(profile, body.university_data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 分析生成失败: {str(e)}")
+    return {"code": 200, "message": "success", "data": result}
+

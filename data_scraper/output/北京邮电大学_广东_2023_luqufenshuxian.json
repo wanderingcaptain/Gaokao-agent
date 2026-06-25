@@ -1,0 +1,24 @@
+{
+  "url": "https://gateway.quark.cn/api/v1?position=luqufenshuxian&businessPath=gaokao_college_non_first&uc_param_str=dsdnfrpfbivesscpgimibtbmnijblauputogpintnwktprchmtkpst&chid=1782273700378-20164718111343094-9288017966163241",
+  "position": "luqufenshuxian",
+  "body": {
+    "status": 0,
+    "code": "00000",
+    "msg": "成功",
+    "data": {
+      "pastyears_scorelines": "{\"data\": {\"column\": [{\"key\": \"type\", \"label\": \"招生类型\"}, {\"key\": \"low_score\", \"label\": \"最低分\"}, {\"key\": \"low_rank\", \"label\": \"位次\"}, {\"key\": \"luqurenshu\", \"label\": \"人数\"}, {\"key\": \"low_score_diff\", \"label\": \"批次线差\"}], \"dataSource\": [{\"low_score_and_rank\": \"658/2512\", \"low_score_diff\": \"219\", \"type\": \"普通类\", \"low_rank\": \"2512\", \"low_score\": \"658\", \"year\": \"2023\", \"luqurenshu\": \"0\", \"specialized\": \"专业组（204） - 物理+不限\"}, {\"low_score_and_rank\": \"636/7885\", \"low_score_diff\": \"197\", \"type\": \"普通类\", \"low_rank\": \"7885\", \"low_score\": \"636\", \"year\": \"2023\", \"luqurenshu\": \"0\", \"specialized\": \"专业组（201） - 物理+不限\"}, {\"low_score_and_rank\": \"619/15298\", \"low_score_diff\": \"180\", \"type\": \"宏福校区中外合作\", \"low_rank\": \"15298\", \"low_score\": \"619\", \"year\": \"2023\", \"luqurenshu\": \"0\", \"specialized\": \"专业组（202） - 物理+不限\"}, {\"low_score_and_rank\": \"615/17510\", \"low_score_diff\": \"176\", \"type\": \"宏福校区中外合作\", \"low_rank\": \"17510\", \"low_score\": \"615\", \"year\": \"2023\", \"luqurenshu\": \"0\", \"specialized\": \"专业组（203） - 物理+不限\"}]}, \"hasNew\": true, \"is_312\": false, \"isNew\": false}",
+      "ScOnlineVersion": "v0.1.1",
+      "main_title_xpath": "/Root/hits/hit/vip_attributes/guid",
+      "sc_stype": "domestic_universities",
+      "template_id": "general_entity_gaokao_dxgk",
+      "POSITION": "0",
+      "clickfeedback": "2",
+      "time_sensitive": "1100",
+      "pastyears_scorelines_valid_provs": "上海,云南,内蒙古,北京,吉林,四川,天津,宁夏,安徽,山东,山西,广东,广西,新疆,江苏,江西,河北,河南,浙江,海南,湖北,湖南,甘肃,福建,西藏,贵州,辽宁,重庆,陕西,青海,黑龙江",
+      "sc_config": {
+        "tab_list": "[\"basic\", \"scorelines\", \"major\", \"life\", \"qa\", \"employment\", \"image\"]",
+        "bg_color": "1f4e8c,234777,1f4e8c,234777,fffff"
+      }
+    }
+  }
+}

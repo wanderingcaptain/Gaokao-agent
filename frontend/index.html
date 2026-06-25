@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 高考志愿填报助手 — 智能规划，精准匹配</title>
+  <meta name="description" content="结合规则引擎与通义千问大模型，为高考考生提供个性化志愿填报方案，智能匹配冲稳保院校。" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Noto Sans SC', sans-serif; }
+
+    body {
+      background: linear-gradient(135deg, #0f0c29 0%, #1a1040 40%, #0d1b3e 100%);
+      min-height: 100vh;
+    }
+
+    /* ── 动态背景星点 ── */
+    .stars {
+      position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0;
+    }
+    .star {
+      position: absolute; border-radius: 50%; background: #fff;
+      animation: twinkle linear infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.1; transform: scale(1); }
+      50%       { opacity: 0.8; transform: scale(1.4); }
+    }
+
+    /* ── 渐变文字 ── */
+    .gradient-text {
+      background: linear-gradient(90deg, #818cf8, #c084fc, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ── 玻璃卡片 ── */
+    .glass {
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ── 表单输入 ── */
+    .form-input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #e2e8f0;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: #818cf8;
+      box-shadow: 0 0 0 3px rgba(129,140,248,0.2);
+    }
+    .form-input::placeholder { color: rgba(226,232,240,0.35); }
+    .form-input option { background: #1e1b4b; }
+
+    /* ── 多选标签 ── */
+    .tag-btn {
+      border: 1px solid rgba(129,140,248,0.35);
+      color: rgba(226,232,240,0.65);
+      transition: all 0.18s;
+      cursor: pointer;
+    }
+    .tag-btn:hover  { border-color: #818cf8; color: #c7d2fe; }
+    .tag-btn.active {
+      background: rgba(129,140,248,0.25);
+      border-color: #818cf8;
+      color: #c7d2fe;
+    }
+
+    /* ── 步骤指示器 ── */
+    .step-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: all 0.3s;
+    }
+    .step-dot.active { background: #818cf8; box-shadow: 0 0 10px #818cf8; }
+    .step-dot.done   { background: #34d399; }
+
+    /* ── 提交按钮 ── */
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(99,102,241,0.45);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    /* ── 步骤动画 ── */
+    .step-panel { display: none; animation: fadeUp 0.4s ease; }
+    .step-panel.active { display: block; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── 首页英雄区 ── */
+    #hero-section { animation: fadeUp 0.6s ease; }
+
+    /* ── Range slider ── */
+    input[type=range] { accent-color: #818cf8; }
+
+    /* ── 排序拖拽 ── */
+    .priority-item {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      cursor: grab;
+      transition: all 0.2s;
+    }
+    .priority-item:hover { border-color: #818cf8; background: rgba(129,140,248,0.1); }
+    .priority-item.dragging { opacity: 0.5; cursor: grabbing; }
+    .priority-item.drag-over { border-color: #c084fc; background: rgba(192,132,252,0.15); }
+  </style>
+</head>
+<body class="text-slate-200">
+
+<!-- 星空背景 -->
+<div class="stars" id="stars-bg"></div>
+
+<div class="relative z-10">
+
+  <!-- ════════ HERO 区域 ════════ -->
+  <section id="hero-section" class="min-h-screen flex flex-col items-center justify-center px-4 py-16">
+    <!-- Logo + 标题 -->
+    <div class="text-center mb-12">
+      <div class="inline-flex items-center gap-3 glass rounded-full px-5 py-2 mb-8 text-sm text-indigo-300">
+        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        AI 驱动 · 实时分析 · 数据精准
+      </div>
+      <h1 class="text-5xl md:text-7xl font-black mb-4 leading-tight">
+        <span class="gradient-text">AI 高考志愿</span><br />
+        <span class="text-white">填报助手</span>
+      </h1>
+      <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
+        结合同位次规则引擎与通义千问大模型<br class="hidden md:block"/>
+        为你精准匹配 <span class="text-indigo-300 font-semibold">冲·稳·保</span> 三梯度院校
+      </p>
+    </div>
+
+    <!-- 特性卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 w-full max-w-3xl">
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="text-3xl mb-2">📊</div>
+        <div class="font-semibold text-white mb-1">同位次转换</div>
+        <div class="text-sm text-slate-400">基于一分一段表精确计算历年录取位次区间</div>
+      </div>
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="text-3xl mb-2">🤖</div>
+        <div class="font-semibold text-white mb-1">大模型分析</div>
+        <div class="text-sm text-slate-400">Qwen 补全学费宿舍软数据，智能判定冲稳保</div>
+      </div>
+      <div class="glass rounded-2xl p-5 text-center">
+        <div class="text-3xl mb-2">📈</div>
+        <div class="font-semibold text-white mb-1">动态可视化</div>
+        <div class="text-sm text-slate-400">ECharts 图表实时展示录取趋势与位次对比</div>
+      </div>
+    </div>
+
+    <!-- 开始按钮 -->
+    <button id="start-btn" onclick="showForm()"
+      class="btn-primary text-white font-bold text-lg px-10 py-4 rounded-2xl shadow-lg flex items-center gap-3">
+      <span>开始填写我的志愿信息</span>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+      </svg>
+    </button>
+  </section>
+
+  <!-- ════════ 表单区域 ════════ -->
+  <section id="form-section" class="hidden min-h-screen px-4 py-12">
+    <div class="max-w-2xl mx-auto">
+
+      <!-- 顶部步骤指示器 -->
+      <div class="flex items-center justify-center gap-3 mb-10">
+        <div class="step-dot active" id="dot-1"></div>
+        <div class="w-16 h-px bg-white/20"></div>
+        <div class="step-dot" id="dot-2"></div>
+        <div class="w-16 h-px bg-white/20"></div>
+        <div class="step-dot" id="dot-3"></div>
+        <div class="w-16 h-px bg-white/20"></div>
+        <div class="step-dot" id="dot-4"></div>
+      </div>
+
+      <div class="glass rounded-3xl p-8 md:p-10">
+        <!-- ─── Step 1：基础信息 ─── -->
+        <div class="step-panel active" id="step-1">
+          <h2 class="text-2xl font-bold text-white mb-1">📝 基础信息</h2>
+          <p class="text-slate-400 text-sm mb-6">填写你的考试基本数据</p>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">所在省份 *</label>
+              <select id="province" class="form-input w-full rounded-xl px-4 py-3">
+                <option value="">请选择</option>
+                <option selected>广东</option><option>浙江</option><option>江苏</option>
+                <option>北京</option><option>上海</option><option>山东</option>
+                <option>湖北</option><option>湖南</option><option>四川</option>
+                <option>福建</option><option>安徽</option><option>河南</option>
+                <option>陕西</option><option>重庆</option><option>辽宁</option>
+                <option>吉林</option><option>天津</option><option>其他</option>
+              </select>
+              <p class="text-xs text-amber-400/80 mt-1">⚠️ 当前数据库仅含广东省录取数据</p>
+            </div>
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">选科/科类 *</label>
+              <select id="subject_type" class="form-input w-full rounded-xl px-4 py-3">
+                <option value="">请选择</option>
+                <option value="物理类" selected>物理类（新高考）</option>
+                <option value="历史类">历史类（新高考）</option>
+                <option value="理科">理科（老高考）</option>
+                <option value="文科">文科（老高考）</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">高考总分 *</label>
+              <input id="gaokao_score" type="number" min="0" max="750" placeholder="如：612"
+                class="form-input w-full rounded-xl px-4 py-3" />
+            </div>
+            <div>
+              <label class="block text-sm text-slate-400 mb-1">全省位次 *</label>
+              <input id="province_rank" type="number" min="1" placeholder="如：8500"
+                class="form-input w-full rounded-xl px-4 py-3" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">数学基础</label>
+              <select id="math_level" class="form-input w-full rounded-xl px-3 py-3 text-sm">
+                <option value="强">强</option><option value="中">中</option><option value="弱">弱</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">英语基础</label>
+              <select id="english_level" class="form-input w-full rounded-xl px-3 py-3 text-sm">
+                <option value="强">强</option><option value="中">中</option><option value="弱">弱</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">物理基础</label>
+              <select id="physics_level" class="form-input w-full rounded-xl px-3 py-3 text-sm">
+                <option value="强">强</option><option value="中" selected>中</option><option value="弱">弱</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex justify-end mt-6">
+            <button onclick="nextStep(1)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- ─── Step 2：偏好与性格 ─── -->
+        <div class="step-panel" id="step-2">
+          <h2 class="text-2xl font-bold text-white mb-1">🎯 偏好与性格</h2>
+          <p class="text-slate-400 text-sm mb-6">帮助大模型更准确地理解你</p>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">喜欢的学科（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="liked-subjects">
+              <!-- 动态生成 -->
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">不喜欢的学科</label>
+            <div class="flex flex-wrap gap-2" id="disliked-subjects"></div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">性格特点（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="personality-tags"></div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">职业方向/愿景</label>
+            <input id="career_vision" type="text" placeholder="如：希望从事人工智能研究或金融行业"
+              class="form-input w-full rounded-xl px-4 py-3" />
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm text-slate-400 mb-2">是否接受读研/升学</label>
+            <div class="flex gap-3">
+              <button id="postgrad-yes" onclick="setToggle('postgrad','yes')"
+                class="tag-btn px-5 py-2 rounded-xl text-sm active">✅ 接受</button>
+              <button id="postgrad-no" onclick="setToggle('postgrad','no')"
+                class="tag-btn px-5 py-2 rounded-xl text-sm">❌ 不接受</button>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="block text-sm text-slate-400 mb-2">是否接受中外合作专业</label>
+            <div class="flex gap-3">
+              <button id="sino-yes" onclick="setToggle('sino','yes')"
+                class="tag-btn px-5 py-2 rounded-xl text-sm">✅ 接受</button>
+              <button id="sino-no" onclick="setToggle('sino','no')"
+                class="tag-btn px-5 py-2 rounded-xl text-sm active">❌ 不接受</button>
+            </div>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button onclick="prevStep(2)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button onclick="nextStep(2)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- ─── Step 3：城市与预算 ─── -->
+        <div class="step-panel" id="step-3">
+          <h2 class="text-2xl font-bold text-white mb-1">🏙️ 城市与预算</h2>
+          <p class="text-slate-400 text-sm mb-6">设置你的地域和经济约束</p>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">想去的城市（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="preferred-cities"></div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">不想去的城市（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="excluded-cities"></div>
+          </div>
+
+          <div class="mb-6">
+            <label class="block text-sm text-slate-400 mb-3">
+              家庭预算（学费+住宿，元/年）：
+              <span id="budget-display" class="text-indigo-300 font-semibold">8,000 ~ 20,000</span>
+            </label>
+            <div class="flex items-center gap-4">
+              <span class="text-xs text-slate-500">0</span>
+              <div class="flex-1 flex flex-col gap-2">
+                <div class="flex gap-2 items-center">
+                  <span class="text-xs text-slate-400 w-8">最低</span>
+                  <input id="budget-min" type="range" min="0" max="100000" step="1000" value="8000"
+                    class="flex-1" oninput="updateBudget()" />
+                </div>
+                <div class="flex gap-2 items-center">
+                  <span class="text-xs text-slate-400 w-8">最高</span>
+                  <input id="budget-max" type="range" min="0" max="100000" step="1000" value="20000"
+                    class="flex-1" oninput="updateBudget()" />
+                </div>
+              </div>
+              <span class="text-xs text-slate-500">10万</span>
+            </div>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button onclick="prevStep(3)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button onclick="nextStep(3)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- ─── Step 4：优先级 + 补充 ─── -->
+        <div class="step-panel" id="step-4">
+          <h2 class="text-2xl font-bold text-white mb-1">⚖️ 优先级排序</h2>
+          <p class="text-slate-400 text-sm mb-6">拖动调整你最看重的因素顺序</p>
+
+          <div id="priority-list" class="space-y-2 mb-6">
+            <!-- 动态生成 -->
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">其他补充需求（自由填写）</label>
+            <textarea id="extra_notes" rows="3" placeholder="如：希望学校有强的科研氛围，对保研率有要求，不喜欢太偏的校区..."
+              class="form-input w-full rounded-xl px-4 py-3 resize-none"></textarea>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button onclick="prevStep(4)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button id="submit-btn" onclick="submitProfile()"
+              class="btn-primary px-8 py-3 rounded-xl font-bold flex items-center gap-2">
+              <span>🚀 开始 AI 分析</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════ 加载过渡页 ════════ -->
+  <section id="loading-section" class="hidden min-h-screen flex flex-col items-center justify-center px-4">
+    <div class="glass rounded-3xl p-10 max-w-lg w-full text-center">
+      <div class="text-5xl mb-6 animate-bounce">🤖</div>
+      <h3 class="text-2xl font-bold text-white mb-2">AI 正在分析中...</h3>
+      <p id="loading-msg" class="text-slate-400 text-sm mb-8">初始化规则引擎...</p>
+      <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">
+        <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500
+          transition-all duration-700" style="width:5%"></div>
+      </div>
+      <div id="stage-list" class="mt-6 text-left space-y-2 text-sm"></div>
+    </div>
+  </section>
+
+</div><!-- /z-10 -->
+
+<script>
+// ════════════════════════════════════════════════
+// 星空生成
+// ════════════════════════════════════════════════
+(function() {
+  const bg = document.getElementById('stars-bg');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    const size = Math.random() * 2.5 + 0.5;
+    s.className = 'star';
+    Object.assign(s.style, {
+      width: size + 'px', height: size + 'px',
+      left: Math.random() * 100 + '%', top: Math.random() * 100 + '%',
+      animationDuration: (Math.random() * 4 + 2) + 's',
+      animationDelay: (Math.random() * 5) + 's',
+    });
+    bg.appendChild(s);
+  }
+})();
+
+// ════════════════════════════════════════════════
+// 数据
+// ════════════════════════════════════════════════
+const SUBJECTS = ['数学','物理','化学','生物','计算机','英语','历史','政治','地理','经济','哲学','文学'];
+const PERSONALITIES = ['内向','外向','喜欢独立研究','团队协作','有创意','细心严谨','喜欢挑战','稳健保守','社交活跃','专注专业'];
+const CITIES_POPULAR = ['北京','上海','广州','深圳','杭州','南京','武汉','成都','西安','重庆','天津','苏州','长沙','合肥','厦门'];
+const CITIES_ALL = [...CITIES_POPULAR, '济南','郑州','昆明','贵阳','南宁','哈尔滨','长春','沈阳','大连','乌鲁木齐','拉萨','兰州','西宁','太原','呼和浩特'];
+const PRIORITY_FACTORS = [
+  {id:'major', label:'📚 专业质量', emoji:'📚'},
+  {id:'job',   label:'💼 就业前景', emoji:'💼'},
+  {id:'city',  label:'🏙️ 城市地域', emoji:'🏙️'},
+  {id:'school',label:'🏛️ 学校排名', emoji:'🏛️'},
+  {id:'research',label:'🔬 科研氛围', emoji:'🔬'},
+  {id:'env',   label:'🌿 校园环境', emoji:'🌿'},
+];
+
+// 状态
+const state = {
+  currentStep: 1,
+  postgrad: true,
+  sino: false,
+  likedSubjects: new Set(),
+  dislikedSubjects: new Set(),
+  personalityTraits: new Set(),
+  preferredCities: new Set(),
+  excludedCities: new Set(),
+  priorityOrder: PRIORITY_FACTORS.map(f => f.id),
+};
+
+// ════════════════════════════════════════════════
+// 初始化标签
+// ════════════════════════════════════════════════
+function createTagGroup(containerId, items, stateSet, allowConflict) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'tag-btn text-sm px-3 py-1 rounded-lg';
+    btn.textContent = item;
+    btn.dataset.value = item;
+    btn.addEventListener('click', () => {
+      stateSet.has(item) ? stateSet.delete(item) : stateSet.add(item);
+      btn.classList.toggle('active', stateSet.has(item));
+    });
+    container.appendChild(btn);
+  });
+}
+
+function initTagGroups() {
+  createTagGroup('liked-subjects', SUBJECTS, state.likedSubjects);
+  createTagGroup('disliked-subjects', SUBJECTS, state.dislikedSubjects);
+  createTagGroup('personality-tags', PERSONALITIES, state.personalityTraits);
+  createTagGroup('preferred-cities', CITIES_POPULAR, state.preferredCities);
+  createTagGroup('excluded-cities', CITIES_ALL, state.excludedCities);
+  initPriorityList();
+}
+
+// ════════════════════════════════════════════════
+// 优先级拖拽排序
+// ════════════════════════════════════════════════
+function initPriorityList() {
+  const list = document.getElementById('priority-list');
+  list.innerHTML = '';
+  state.priorityOrder.forEach((id, idx) => {
+    const factor = PRIORITY_FACTORS.find(f => f.id === id);
+    const item = document.createElement('div');
+    item.className = 'priority-item flex items-center gap-3 px-4 py-3 rounded-xl select-none';
+    item.draggable = true;
+    item.dataset.id = id;
+    item.innerHTML = `
+      <span class="text-slate-500 text-xs w-5">⠿</span>
+      <span class="text-lg">${factor.emoji}</span>
+      <span class="text-slate-200 text-sm flex-1">${factor.label.replace(factor.emoji,'').trim()}</span>
+      <span class="text-xs text-indigo-400 font-mono">第 ${idx+1} 位</span>
+    `;
+    // 拖拽事件
+    item.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', id); item.classList.add('dragging'); });
+    item.addEventListener('dragend', () => item.classList.remove('dragging'));
+    item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
+    item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    item.addEventListener('drop', e => {
+      e.preventDefault(); item.classList.remove('drag-over');
+      const fromId = e.dataTransfer.getData('text/plain');
+      const toId = id;
+      if (fromId === toId) return;
+      const fromIdx = state.priorityOrder.indexOf(fromId);
+      const toIdx   = state.priorityOrder.indexOf(toId);
+      state.priorityOrder.splice(fromIdx, 1);
+      state.priorityOrder.splice(toIdx, 0, fromId);
+      initPriorityList();
+    });
+    list.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════
+// 步骤控制
+// ════════════════════════════════════════════════
+function showForm() {
+  document.getElementById('hero-section').classList.add('hidden');
+  document.getElementById('form-section').classList.remove('hidden');
+  initTagGroups();
+}
+
+function nextStep(current) {
+  if (!validateStep(current)) return;
+  const next = current + 1;
+  document.getElementById(`step-${current}`).classList.remove('active');
+  document.getElementById(`step-${next}`).classList.add('active');
+  document.getElementById(`dot-${current}`).classList.replace('active','done');
+  document.getElementById(`dot-${next}`).classList.add('active');
+  state.currentStep = next;
+}
+
+function prevStep(current) {
+  const prev = current - 1;
+  document.getElementById(`step-${current}`).classList.remove('active');
+  document.getElementById(`step-${prev}`).classList.add('active');
+  document.getElementById(`dot-${current}`).classList.remove('active');
+  document.getElementById(`dot-${prev}`).classList.replace('done','active');
+  state.currentStep = prev;
+}
+
+function validateStep(step) {
+  if (step === 1) {
+    const p = document.getElementById('province').value;
+    const s = document.getElementById('subject_type').value;
+    const sc = document.getElementById('gaokao_score').value;
+    const rk = document.getElementById('province_rank').value;
+    if (!p || !s || !sc || !rk) {
+      alert('请填写所有必填项（省份、科类、分数、位次）');
+      return false;
+    }
+  }
+  return true;
+}
+
+// ════════════════════════════════════════════════
+// 切换按钮
+// ════════════════════════════════════════════════
+function setToggle(type, val) {
+  if (type === 'postgrad') {
+    state.postgrad = val === 'yes';
+    document.getElementById('postgrad-yes').classList.toggle('active', state.postgrad);
+    document.getElementById('postgrad-no').classList.toggle('active', !state.postgrad);
+  } else {
+    state.sino = val === 'yes';
+    document.getElementById('sino-yes').classList.toggle('active', state.sino);
+    document.getElementById('sino-no').classList.toggle('active', !state.sino);
+  }
+}
+
+// ════════════════════════════════════════════════
+// 预算滑块
+// ════════════════════════════════════════════════
+function updateBudget() {
+  const mn = parseInt(document.getElementById('budget-min').value);
+  const mx = parseInt(document.getElementById('budget-max').value);
+  document.getElementById('budget-display').textContent =
+    `${mn.toLocaleString()} ~ ${Math.max(mn, mx).toLocaleString()}`;
+}
+
+// ════════════════════════════════════════════════
+// 提交 + SSE
+// ════════════════════════════════════════════════
+async function submitProfile() {
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="animate-spin">⏳</span> 提交中...';
+
+  const payload = {
+    province:          document.getElementById('province').value,
+    subject_type:      document.getElementById('subject_type').value,
+    gaokao_score:      parseInt(document.getElementById('gaokao_score').value),
+    province_rank:     parseInt(document.getElementById('province_rank').value),
+    liked_subjects:    [...state.likedSubjects],
+    disliked_subjects: [...state.dislikedSubjects],
+    math_level:        document.getElementById('math_level').value,
+    english_level:     document.getElementById('english_level').value,
+    physics_level:     document.getElementById('physics_level').value,
+    personality_traits:[...state.personalityTraits],
+    career_vision:     document.getElementById('career_vision').value,
+    annual_budget_min: parseInt(document.getElementById('budget-min').value),
+    annual_budget_max: parseInt(document.getElementById('budget-max').value),
+    preferred_cities:  [...state.preferredCities],
+    excluded_cities:   [...state.excludedCities],
+    accept_postgrad:   state.postgrad,
+    accept_sino_foreign: state.sino,
+    priority_factors:  state.priorityOrder.map((id, i) => ({factor: PRIORITY_FACTORS.find(f=>f.id===id).label.replace(/^[^\s]*\s/,''), rank: i+1})),
+    extra_notes:       document.getElementById('extra_notes').value,
+  };
+
+  // 1. 提交画像
+  let uuid;
+  try {
+    const res = await fetch('/api/v1/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    uuid = data.data.uuid;
+  } catch (e) {
+    alert('提交失败，请检查后端服务是否启动：' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<span>🚀 开始 AI 分析</span>';
+    return;
+  }
+
+  // 2. 切换到加载页
+  document.getElementById('form-section').classList.add('hidden');
+  document.getElementById('loading-section').classList.remove('hidden');
+  const stageList = document.getElementById('stage-list');
+
+  function addStage(msg) {
+    const div = document.createElement('div');
+    div.className = 'flex items-start gap-2 text-slate-300';
+    div.innerHTML = `<span class="text-green-400 mt-0.5">✓</span><span>${msg}</span>`;
+    stageList.appendChild(div);
+  }
+
+  // 3. SSE 推荐流（fetch + ReadableStream，因 EventSource 仅支持 GET）
+  const progressStages = { rule_engine: 20, llm_enriching: 55, llm_classifying: 85, llm_retry: 60 };
+  let candidates = [];
+
+  // 3分钟超时兜底
+  const abortCtrl = new AbortController();
+  const timeoutId = setTimeout(() => abortCtrl.abort(), 20 * 60 * 1000);
+
+  function showError(msg) {
+    clearTimeout(timeoutId);
+    document.getElementById('loading-section').classList.add('hidden');
+    document.getElementById('form-section').classList.remove('hidden');
+    btn.disabled = false;
+    btn.innerHTML = '<span>🚀 开始 AI 分析</span>';
+    alert('分析失败：' + msg);
+  }
+
+  let response;
+  try {
+    response = await fetch('/api/v1/preliminary', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({uuid}),
+    });
+    const resData = await response.json();
+    if (resData.code === 200) {
+      sessionStorage.setItem('gaokao_uuid', uuid);
+      sessionStorage.setItem('gaokao_candidates', JSON.stringify(resData.data.candidates || []));
+      sessionStorage.setItem('gaokao_ai_done', 'false');
+      sessionStorage.setItem('gaokao_profile_summary', JSON.stringify({
+        province: payload.province,
+        subject_type: payload.subject_type,
+        gaokao_score: payload.gaokao_score,
+        province_rank: payload.province_rank,
+      }));
+      window.location.href = '/result';
+    } else {
+      showError(resData.message || '获取初步筛选结果失败');
+    }
+  } catch (e) {
+    showError('请求推荐失败：' + e.message);
+  }
+}
+</script>
+</body>
+</html>
+
+
