@@ -3,10 +3,11 @@
   - GET  /detail/history   — 查本地 DB，返回历年录取数据（无 AI，极快）
   - POST /detail/ai-report — 调用 LLM 生成深度分析报告（原 /detail 端点）
 """
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from database.models import get_db, AdmissionRecord
+from database.models import AdmissionRecord, User, UserProfile, get_db
+from services.auth_service import get_current_user
 from services.profile_service import get_profile
 from services.llm_service import generate_detail_ui
 
@@ -70,8 +71,26 @@ class AIReportRequest(BaseModel):
 
 
 @router.post("/detail/ai-report")
-async def get_ai_report(body: AIReportRequest):
+async def get_ai_report(
+    body: AIReportRequest,
+    current_user: User = Depends(get_current_user),
+):
     """调用 LLM 生成院校专业深度分析报告（耗时较长）"""
+    db_gen = get_db()
+    db = next(db_gen)
+    try:
+        owned = (
+            db.query(UserProfile)
+            .filter(UserProfile.user_id == current_user.id, UserProfile.profile_uuid == body.uuid)
+            .first()
+        )
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+    if not owned:
+        raise HTTPException(status_code=404, detail="用户画像不存在")
     profile = get_profile(body.uuid)
     if not profile:
         raise HTTPException(status_code=404, detail="用户画像不存在")
@@ -80,4 +99,3 @@ async def get_ai_report(body: AIReportRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI 分析生成失败: {str(e)}")
     return {"code": 200, "message": "success", "data": result}
-

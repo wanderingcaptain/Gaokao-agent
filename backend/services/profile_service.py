@@ -46,13 +46,14 @@ def create_profile(data: dict) -> str:
         },
         "constraints": {
             "annual_budget_min":   data.get("annual_budget_min", 0),
-            "annual_budget_max":   data.get("annual_budget_max", 100000),
+            "annual_budget_max":   data.get("annual_budget_max", 150000),
             "preferred_cities":    data.get("preferred_cities", []),
             "excluded_cities":     data.get("excluded_cities", []),
             "accept_postgrad":     data.get("accept_postgrad", True),
             "accept_sino_foreign": data.get("accept_sino_foreign", False),
         },
         "priority_factors": data.get("priority_factors", []),
+        "preference_tree":  data.get("preference_tree", []),
         "extra_notes":      data.get("extra_notes", ""),
     }
 
@@ -60,6 +61,54 @@ def create_profile(data: dict) -> str:
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(profile, f, ensure_ascii=False, indent=2)
 
+    return uid
+
+
+def build_profile(data: dict, uid: str | None = None) -> dict:
+    """构建标准画像结构，不负责落盘。"""
+    uid = uid or str(uuid.uuid4())
+    now = datetime.now(CST).isoformat()
+
+    return {
+        "uuid": uid,
+        "created_at": now,
+        "basic_info": {
+            "province":     data["province"],
+            "subject_type": data["subject_type"],
+            "gaokao_score": data["gaokao_score"],
+            "province_rank": data["province_rank"],
+        },
+        "academic_preferences": {
+            "liked_subjects":    data.get("liked_subjects", []),
+            "disliked_subjects": data.get("disliked_subjects", []),
+            "math_level":        data.get("math_level", "中"),
+            "english_level":     data.get("english_level", "中"),
+            "physics_level":     data.get("physics_level", "中"),
+        },
+        "personality": {
+            "traits":         data.get("personality_traits", []),
+            "career_vision":  data.get("career_vision", ""),
+        },
+        "constraints": {
+            "annual_budget_min":   data.get("annual_budget_min", 0),
+            "annual_budget_max":   data.get("annual_budget_max", 150000),
+            "preferred_cities":    data.get("preferred_cities", []),
+            "excluded_cities":     data.get("excluded_cities", []),
+            "accept_postgrad":     data.get("accept_postgrad", True),
+            "accept_sino_foreign": data.get("accept_sino_foreign", False),
+        },
+        "priority_factors": data.get("priority_factors", []),
+        "preference_tree":  data.get("preference_tree", []),
+        "extra_notes":      data.get("extra_notes", ""),
+    }
+
+
+def save_profile(profile: dict) -> str:
+    """画像写入 JSON 文件，返回 UUID。"""
+    uid = profile["uuid"]
+    file_path = PROFILES_DIR / f"{uid}_用户画像.json"
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=2)
     return uid
 
 

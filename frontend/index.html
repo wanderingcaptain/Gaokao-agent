@@ -71,6 +71,59 @@
       border-color: #818cf8;
       color: #c7d2fe;
     }
+    .major-card {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.045);
+      border-color: rgba(148,163,184,0.28);
+    }
+    .major-card:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.07);
+    }
+    .major-card-title {
+      display: block;
+      font-size: 16px;
+      line-height: 1.3;
+      font-weight: 800;
+      color: #f8fafc;
+    }
+    .major-card-desc {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #94a3b8;
+    }
+    .major-card.liked.active {
+      background: rgba(220,252,231,0.92);
+      border-color: #16a34a;
+      box-shadow: 0 0 0 2px rgba(22,163,74,0.14);
+    }
+    .major-card.liked.active .major-card-title { color: #166534; }
+    .major-card.liked.active .major-card-desc { color: #15803d; }
+    .major-card.disliked.active {
+      background: rgba(254,226,226,0.94);
+      border-color: #dc2626;
+      box-shadow: 0 0 0 2px rgba(220,38,38,0.14);
+    }
+    .major-card.disliked.active .major-card-title { color: #991b1b; }
+    .major-card.disliked.active .major-card-desc { color: #b91c1c; }
+    .major-card.locked-liked {
+      background: rgba(220,252,231,0.92);
+      border-color: #16a34a;
+      box-shadow: 0 0 0 2px rgba(22,163,74,0.14);
+      cursor: not-allowed;
+    }
+    .major-card.locked-liked .major-card-title { color: #166534; }
+    .major-card.locked-liked .major-card-desc { color: #15803d; }
+    .major-card.locked-liked::after {
+      content: "已选喜欢";
+      display: inline-block;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #166534;
+    }
 
     /* ── 步骤指示器 ── */
     .step-dot {
@@ -103,11 +156,88 @@
     /* ── 首页英雄区 ── */
     #hero-section { animation: fadeUp 0.6s ease; }
 
-    /* ── Range slider ── */
-    input[type=range] { accent-color: #818cf8; }
+	    /* ── Range slider ── */
+	    input[type=range] { accent-color: #818cf8; }
+	
+	    /* ── 层级气泡选择器 ── */
+	    .bubble-group { margin-bottom: 16px; }
+	    .bubble-row {
+	      display: flex;
+	      flex-wrap: wrap;
+	      gap: 10px;
+	      align-items: center;
+	    }
+	    .bubble-row.child {
+	      margin: 10px 0 0 18px;
+	      padding-left: 16px;
+	      border-left: 2px solid rgba(129,140,248,0.22);
+	    }
+	    .bubble-row.child .bubble-row.child {
+	      flex-basis: 100%;
+	      margin-top: 0;
+	    }
+	    .bubble-btn {
+	      min-height: 40px;
+	      border-radius: 999px;
+	      border: 1px solid rgba(129,140,248,0.34);
+	      background: rgba(255,255,255,0.58);
+	      color: #475569;
+	      padding: 9px 15px;
+	      font-size: 14px;
+	      line-height: 1.2;
+	      cursor: pointer;
+	      transition: transform 0.16s, background 0.16s, border-color 0.16s, box-shadow 0.16s;
+	    }
+	    .bubble-btn:hover {
+	      transform: translateY(-1px);
+	      border-color: #6366f1;
+	      background: rgba(238,242,255,0.92);
+	      color: #3730a3;
+	    }
+	    .bubble-btn.root {
+	      min-height: 48px;
+	      padding: 12px 18px;
+	      font-weight: 800;
+	      color: #1f2937;
+	    }
+	    .bubble-btn.expanded {
+	      border-color: #6366f1;
+	      background: rgba(99,102,241,0.13);
+	      color: #3730a3;
+	      box-shadow: 0 8px 24px rgba(99,102,241,0.12);
+	    }
+	    .bubble-btn.selected {
+	      border-color: #16a34a;
+	      background: rgba(220,252,231,0.96);
+	      color: #166534;
+	      box-shadow: 0 0 0 2px rgba(22,163,74,0.12);
+	    }
+	    .bubble-hint {
+	      display: inline-block;
+	      margin-left: 6px;
+	      color: #818cf8;
+	      font-size: 12px;
+	    }
+	    .selected-bubble-tag {
+	      display: inline-flex;
+	      align-items: center;
+	      gap: 6px;
+	      border: 1px solid rgba(22,163,74,0.28);
+	      background: rgba(220,252,231,0.82);
+	      color: #166534;
+	      border-radius: 999px;
+	      padding: 7px 11px;
+	      font-size: 12px;
+	      font-weight: 700;
+	    }
+	    .selected-bubble-tag button {
+	      color: #15803d;
+	      font-size: 14px;
+	      line-height: 1;
+	    }
 
-    /* ── 排序拖拽 ── */
-    .priority-item {
+	    /* ── 排序拖拽 ── */
+	    .priority-item {
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.12);
       cursor: grab;
@@ -116,6 +246,74 @@
     .priority-item:hover { border-color: #818cf8; background: rgba(129,140,248,0.1); }
     .priority-item.dragging { opacity: 0.5; cursor: grabbing; }
     .priority-item.drag-over { border-color: #c084fc; background: rgba(192,132,252,0.15); }
+
+    /* ── 浅色米白主题 ── */
+    body {
+      background:
+        radial-gradient(circle at 12% 8%, rgba(129,140,248,0.16), transparent 30%),
+        radial-gradient(circle at 82% 18%, rgba(20,184,166,0.12), transparent 28%),
+        linear-gradient(135deg, #fbf7ef 0%, #f4efe5 48%, #eef4f1 100%);
+      color: #1f2937;
+    }
+    .stars { display: none; }
+    .glass {
+      background: rgba(255,255,255,0.74);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(148,163,184,0.24);
+      box-shadow: 0 18px 45px rgba(15,23,42,0.08);
+    }
+    .text-white { color: #1f2937 !important; }
+    .text-slate-200, .text-slate-300 { color: #334155 !important; }
+    .text-slate-400 { color: #64748b !important; }
+    .text-slate-500 { color: #718096 !important; }
+    .text-slate-600 { color: #94a3b8 !important; }
+    .text-indigo-300 { color: #4f46e5 !important; }
+    .gradient-text {
+      background: linear-gradient(90deg, #4f46e5, #0891b2, #16a34a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .form-input {
+      background: rgba(255,255,255,0.82);
+      border-color: rgba(148,163,184,0.38);
+      color: #1f2937;
+    }
+    .form-input::placeholder { color: #94a3b8; }
+    .form-input option { background: #fffaf2; color: #1f2937; }
+    .tag-btn {
+      background: rgba(255,255,255,0.62);
+      border-color: rgba(99,102,241,0.24);
+      color: #475569;
+    }
+    .tag-btn:hover { border-color: #6366f1; color: #3730a3; background: rgba(238,242,255,0.9); }
+    .tag-btn.active {
+      background: rgba(99,102,241,0.14);
+      border-color: #6366f1;
+      color: #3730a3;
+    }
+    .major-card {
+      background: rgba(255,255,255,0.72);
+      border-color: rgba(148,163,184,0.28);
+    }
+    .major-card-title { color: #1f2937; }
+    .major-card-desc { color: #64748b; }
+    .priority-item {
+      background: rgba(255,255,255,0.72);
+      border-color: rgba(148,163,184,0.26);
+    }
+    .step-dot { background: rgba(100,116,139,0.26); }
+    .bg-white\/20 { background-color: rgba(100,116,139,0.22) !important; }
+    .auth-error { min-height: 18px; color: #b91c1c; }
+    .auth-rules {
+      display: none;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(148,163,184,0.26);
+      color: #475569;
+    }
+    .auth-rules.visible { display: block; }
+    .auth-rule { color: #64748b; }
+    .auth-rule.valid { color: #15803d; font-weight: 700; }
+    .auth-rule.invalid { color: #b91c1c; font-weight: 700; }
   </style>
 </head>
 <body class="text-slate-200">
@@ -124,7 +322,6 @@
 <div class="stars" id="stars-bg"></div>
 
 <div class="relative z-10">
-
   <!-- ════════ HERO 区域 ════════ -->
   <section id="hero-section" class="min-h-screen flex flex-col items-center justify-center px-4 py-16">
     <!-- Logo + 标题 -->
@@ -138,28 +335,39 @@
         <span class="text-white">填报助手</span>
       </h1>
       <p class="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-        结合同位次规则引擎与通义千问大模型<br class="hidden md:block"/>
-        为你精准匹配 <span class="text-indigo-300 font-semibold">冲·稳·保</span> 三梯度院校
+        结合考生的个人意愿<br class="hidden md:block"/>
+        使用AI大模型<br class="hidden md:block"/>
+        为您精准匹配适合您的 <span class="text-indigo-300 font-semibold">冲·稳·保</span> 三梯度院校
       </p>
     </div>
 
-    <!-- 特性卡片 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12 w-full max-w-3xl">
-      <div class="glass rounded-2xl p-5 text-center">
-        <div class="text-3xl mb-2">📊</div>
-        <div class="font-semibold text-white mb-1">同位次转换</div>
-        <div class="text-sm text-slate-400">基于一分一段表精确计算历年录取位次区间</div>
+    <!-- 登录/注册面板 -->
+    <div id="auth-panel" class="glass hidden rounded-3xl p-6 mb-8 w-full max-w-md">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <div class="gradient-text font-bold text-lg" id="auth-title">登录账号</div>
+          <div id="auth-status" class="text-xs text-slate-500 mt-1">登录后开始填写志愿信息</div>
+        </div>
+        <button onclick="hideAuthPanel()" class="tag-btn px-3 py-1 rounded-xl text-sm">关闭</button>
       </div>
-      <div class="glass rounded-2xl p-5 text-center">
-        <div class="text-3xl mb-2">🤖</div>
-        <div class="font-semibold text-white mb-1">大模型分析</div>
-        <div class="text-sm text-slate-400">Qwen 补全学费宿舍软数据，智能判定冲稳保</div>
+      <div class="space-y-3">
+        <input id="auth-username" class="form-input w-full rounded-xl px-4 py-3 text-sm" placeholder="用户名" onfocus="showAuthRules()" oninput="updateAuthRuleState()" />
+        <input id="auth-password" type="password" class="form-input w-full rounded-xl px-4 py-3 text-sm" placeholder="密码" onfocus="showAuthRules()" oninput="updateAuthRuleState()" />
+        <input id="auth-password-confirm" type="password" class="form-input w-full rounded-xl px-4 py-3 text-sm hidden" placeholder="确认密码" onfocus="showAuthRules()" oninput="updateAuthRuleState()" />
       </div>
-      <div class="glass rounded-2xl p-5 text-center">
-        <div class="text-3xl mb-2">📈</div>
-        <div class="font-semibold text-white mb-1">动态可视化</div>
-        <div class="text-sm text-slate-400">ECharts 图表实时展示录取趋势与位次对比</div>
+      <div id="auth-rules" class="auth-rules rounded-2xl p-3 mt-3 text-xs space-y-1">
+        <div id="rule-username" class="auth-rule">用户名：3-20位，仅支持英文字母、数字、下划线</div>
+        <div id="rule-password-length" class="auth-rule">密码：8-32位</div>
+        <div id="rule-password-combo" class="auth-rule">密码：同时包含字母和数字</div>
+        <div id="rule-password-space" class="auth-rule">密码：不能包含空格</div>
+        <div id="rule-password-confirm" class="auth-rule">确认密码：两次输入一致</div>
       </div>
+      <div id="auth-error" class="auth-error text-xs mt-2"></div>
+      <div class="flex items-center justify-between gap-3 mt-4">
+        <button id="auth-submit-btn" onclick="submitAuth()" class="btn-primary flex-1 px-4 py-3 rounded-xl text-sm font-semibold">登录</button>
+        <button id="auth-switch-btn" onclick="switchAuthMode('register')" class="tag-btn px-4 py-3 rounded-xl text-sm">注册账号</button>
+      </div>
+      <button id="logout-btn" onclick="logout()" class="tag-btn w-full px-4 py-3 rounded-xl text-sm mt-3 hidden">退出登录</button>
     </div>
 
     <!-- 开始按钮 -->
@@ -179,12 +387,14 @@
       <!-- 顶部步骤指示器 -->
       <div class="flex items-center justify-center gap-3 mb-10">
         <div class="step-dot active" id="dot-1"></div>
-        <div class="w-16 h-px bg-white/20"></div>
+        <div class="w-8 h-px bg-white/20"></div>
         <div class="step-dot" id="dot-2"></div>
-        <div class="w-16 h-px bg-white/20"></div>
+        <div class="w-8 h-px bg-white/20"></div>
         <div class="step-dot" id="dot-3"></div>
-        <div class="w-16 h-px bg-white/20"></div>
+        <div class="w-8 h-px bg-white/20"></div>
         <div class="step-dot" id="dot-4"></div>
+        <div class="w-8 h-px bg-white/20"></div>
+        <div class="step-dot" id="dot-5"></div>
       </div>
 
       <div class="glass rounded-3xl p-8 md:p-10">
@@ -211,10 +421,8 @@
               <label class="block text-sm text-slate-400 mb-1">选科/科类 *</label>
               <select id="subject_type" class="form-input w-full rounded-xl px-4 py-3">
                 <option value="">请选择</option>
-                <option value="物理类" selected>物理类（新高考）</option>
-                <option value="历史类">历史类（新高考）</option>
-                <option value="理科">理科（老高考）</option>
-                <option value="文科">文科（老高考）</option>
+                <option value="物理类" selected>物理类</option>
+                <option value="历史类">历史类</option>
               </select>
             </div>
           </div>
@@ -258,51 +466,15 @@
           </div>
         </div>
 
-        <!-- ─── Step 2：偏好与性格 ─── -->
+        <!-- ─── Step 2：喜欢的专业方向 ─── -->
         <div class="step-panel" id="step-2">
-          <h2 class="text-2xl font-bold text-white mb-1">🎯 偏好与性格</h2>
-          <p class="text-slate-400 text-sm mb-6">帮助大模型更准确地理解你</p>
+          <h2 class="text-2xl font-bold text-white mb-1">💚 喜欢的专业方向</h2>
+          <p class="text-slate-400 text-sm mb-6">选择你感兴趣、愿意深入学习的专业大类</p>
 
           <div class="mb-5">
-            <label class="block text-sm text-slate-400 mb-2">喜欢的学科（可多选）</label>
+            <label class="block text-sm text-slate-400 mb-2">喜欢的专业方向（可多选）</label>
             <div class="flex flex-wrap gap-2" id="liked-subjects">
               <!-- 动态生成 -->
-            </div>
-          </div>
-
-          <div class="mb-5">
-            <label class="block text-sm text-slate-400 mb-2">不喜欢的学科</label>
-            <div class="flex flex-wrap gap-2" id="disliked-subjects"></div>
-          </div>
-
-          <div class="mb-5">
-            <label class="block text-sm text-slate-400 mb-2">性格特点（可多选）</label>
-            <div class="flex flex-wrap gap-2" id="personality-tags"></div>
-          </div>
-
-          <div class="mb-5">
-            <label class="block text-sm text-slate-400 mb-2">职业方向/愿景</label>
-            <input id="career_vision" type="text" placeholder="如：希望从事人工智能研究或金融行业"
-              class="form-input w-full rounded-xl px-4 py-3" />
-          </div>
-
-          <div class="mb-4">
-            <label class="block text-sm text-slate-400 mb-2">是否接受读研/升学</label>
-            <div class="flex gap-3">
-              <button id="postgrad-yes" onclick="setToggle('postgrad','yes')"
-                class="tag-btn px-5 py-2 rounded-xl text-sm active">✅ 接受</button>
-              <button id="postgrad-no" onclick="setToggle('postgrad','no')"
-                class="tag-btn px-5 py-2 rounded-xl text-sm">❌ 不接受</button>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <label class="block text-sm text-slate-400 mb-2">是否接受中外合作专业</label>
-            <div class="flex gap-3">
-              <button id="sino-yes" onclick="setToggle('sino','yes')"
-                class="tag-btn px-5 py-2 rounded-xl text-sm">✅ 接受</button>
-              <button id="sino-no" onclick="setToggle('sino','no')"
-                class="tag-btn px-5 py-2 rounded-xl text-sm active">❌ 不接受</button>
             </div>
           </div>
 
@@ -312,8 +484,50 @@
           </div>
         </div>
 
-        <!-- ─── Step 3：城市与预算 ─── -->
+        <!-- ─── Step 3：不喜欢的专业方向 ─── -->
         <div class="step-panel" id="step-3">
+          <h2 class="text-2xl font-bold text-white mb-1">❤️‍🩹 不喜欢的专业方向</h2>
+          <p class="text-slate-400 text-sm mb-6">选择你明确排斥、希望尽量避开的专业大类</p>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">不喜欢的专业方向（可多选）</label>
+            <div class="flex flex-wrap gap-2" id="disliked-subjects"></div>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button onclick="prevStep(3)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button onclick="nextStep(3)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- ─── Step 4：层级气泡偏好 ─── -->
+        <div class="step-panel" id="step-4">
+          <h2 class="text-2xl font-bold text-white mb-1">🫧 你选大学更看重什么</h2>
+          <p class="text-slate-400 text-sm mb-6">点开你在意的方向，选择更具体的想法。这里不会给你贴标签，只帮助系统理解你的偏好和适合的学习环境。</p>
+
+          <div id="preference-bubbles" class="mb-6"></div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">已选择的重点</label>
+            <div id="selected-preference-tags" class="flex flex-wrap gap-2">
+              <span class="text-xs text-slate-500">还没有选择，可以先点开上面的气泡看看。</span>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <label class="block text-sm text-slate-400 mb-2">其他补充需求（自由填写）</label>
+            <textarea id="extra_notes" rows="3" placeholder="如：希望学校有强的科研氛围，对保研率有要求，不喜欢太偏的校区..."
+              class="form-input w-full rounded-xl px-4 py-3 resize-none"></textarea>
+          </div>
+
+          <div class="flex justify-between mt-6">
+            <button onclick="prevStep(4)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button onclick="nextStep(4)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
+          </div>
+        </div>
+
+        <!-- ─── Step 5：城市与预算 ─── -->
+        <div class="step-panel" id="step-5">
           <h2 class="text-2xl font-bold text-white mb-1">🏙️ 城市与预算</h2>
           <p class="text-slate-400 text-sm mb-6">设置你的地域和经济约束</p>
 
@@ -330,49 +544,18 @@
           <div class="mb-6">
             <label class="block text-sm text-slate-400 mb-3">
               家庭预算（学费+住宿，元/年）：
-              <span id="budget-display" class="text-indigo-300 font-semibold">8,000 ~ 20,000</span>
+              <span id="budget-display" class="text-indigo-300 font-semibold">0 ~ 20,000</span>
             </label>
             <div class="flex items-center gap-4">
               <span class="text-xs text-slate-500">0</span>
-              <div class="flex-1 flex flex-col gap-2">
-                <div class="flex gap-2 items-center">
-                  <span class="text-xs text-slate-400 w-8">最低</span>
-                  <input id="budget-min" type="range" min="0" max="100000" step="1000" value="8000"
-                    class="flex-1" oninput="updateBudget()" />
-                </div>
-                <div class="flex gap-2 items-center">
-                  <span class="text-xs text-slate-400 w-8">最高</span>
-                  <input id="budget-max" type="range" min="0" max="100000" step="1000" value="20000"
-                    class="flex-1" oninput="updateBudget()" />
-                </div>
-              </div>
-              <span class="text-xs text-slate-500">10万</span>
+              <input id="budget-slider" type="range" min="0" max="100" step="1" value="51"
+                class="flex-1" oninput="updateBudget()" />
+              <span class="text-xs text-slate-500">15万</span>
             </div>
           </div>
 
           <div class="flex justify-between mt-6">
-            <button onclick="prevStep(3)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
-            <button onclick="nextStep(3)" class="btn-primary px-8 py-3 rounded-xl font-semibold">下一步 →</button>
-          </div>
-        </div>
-
-        <!-- ─── Step 4：优先级 + 补充 ─── -->
-        <div class="step-panel" id="step-4">
-          <h2 class="text-2xl font-bold text-white mb-1">⚖️ 优先级排序</h2>
-          <p class="text-slate-400 text-sm mb-6">拖动调整你最看重的因素顺序</p>
-
-          <div id="priority-list" class="space-y-2 mb-6">
-            <!-- 动态生成 -->
-          </div>
-
-          <div class="mb-5">
-            <label class="block text-sm text-slate-400 mb-2">其他补充需求（自由填写）</label>
-            <textarea id="extra_notes" rows="3" placeholder="如：希望学校有强的科研氛围，对保研率有要求，不喜欢太偏的校区..."
-              class="form-input w-full rounded-xl px-4 py-3 resize-none"></textarea>
-          </div>
-
-          <div class="flex justify-between mt-6">
-            <button onclick="prevStep(4)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
+            <button onclick="prevStep(5)" class="glass px-6 py-3 rounded-xl text-sm text-slate-300">← 上一步</button>
             <button id="submit-btn" onclick="submitProfile()"
               class="btn-primary px-8 py-3 rounded-xl font-bold flex items-center gap-2">
               <span>🚀 开始 AI 分析</span>
@@ -422,10 +605,38 @@
 // ════════════════════════════════════════════════
 // 数据
 // ════════════════════════════════════════════════
-const SUBJECTS = ['数学','物理','化学','生物','计算机','英语','历史','政治','地理','经济','哲学','文学'];
+const AUTH_TOKEN_KEY = 'gaokao_auth_token';
+const AUTH_USER_KEY = 'gaokao_auth_user';
+let authMode = 'login';
+const USERNAME_RULE = /^[A-Za-z0-9_]{3,20}$/;
+const PASSWORD_HAS_LETTER = /[A-Za-z]/;
+const PASSWORD_HAS_DIGIT = /\d/;
+const MAJOR_DIRECTIONS = [
+  {category:'计算机类', majors:'计算机科学与技术、软件工程、网络工程、物联网、大数据、人工智能'},
+  {category:'电子信息类', majors:'电子信息工程、通信工程、微电子、集成电路、光电信息'},
+  {category:'电气类', majors:'电气工程及其自动化、智能电网、电气工程'},
+  {category:'自动化类', majors:'自动化、机器人工程、智能制造、测控技术'},
+  {category:'机械类', majors:'机械工程、机械电子、车辆工程、工业设计'},
+  {category:'土木建筑类', majors:'土木工程、建筑学、城乡规划、风景园林'},
+  {category:'能源与材料类', majors:'新能源、能源动力、储能、材料科学、材料成型'},
+  {category:'化工环境类', majors:'化学工程、制药工程、环境工程、安全工程'},
+  {category:'数学物理类', majors:'数学、统计学、物理学、应用数学'},
+  {category:'生物医学类', majors:'生物科学、生物工程、生物医学工程、药学'},
+  {category:'医学类', majors:'临床医学、口腔医学、中医学、护理、医学影像、麻醉'},
+  {category:'农林食品类', majors:'农学、动物医学、园艺、林学、食品科学、水产'},
+  {category:'金融经济类', majors:'金融学、经济学、财政学、国际经济与贸易、数字经济'},
+  {category:'会计管理类', majors:'会计学、财务管理、工商管理、人力资源、物流管理'},
+  {category:'法学公安类', majors:'法学、知识产权、公安学、侦查学、监狱学'},
+  {category:'教育师范类', majors:'教育学、学前教育、小学教育、特殊教育、体育教育'},
+  {category:'语言文学类', majors:'汉语言文学、英语、日语、翻译、商务英语、小语种'},
+  {category:'新闻传媒类', majors:'新闻学、传播学、广告学、网络与新媒体、编辑出版'},
+  {category:'艺术设计类', majors:'美术、视觉传达、数字媒体艺术、动画、产品设计、环境设计'},
+  {category:'公共服务类', majors:'公共管理、行政管理、社会工作、旅游管理、酒店管理、图书情报'},
+];
 const PERSONALITIES = ['内向','外向','喜欢独立研究','团队协作','有创意','细心严谨','喜欢挑战','稳健保守','社交活跃','专注专业'];
 const CITIES_POPULAR = ['北京','上海','广州','深圳','杭州','南京','武汉','成都','西安','重庆','天津','苏州','长沙','合肥','厦门'];
 const CITIES_ALL = [...CITIES_POPULAR, '济南','郑州','昆明','贵阳','南宁','哈尔滨','长春','沈阳','大连','乌鲁木齐','拉萨','兰州','西宁','太原','呼和浩特'];
+const BUDGET_MAX = 150000;
 const PRIORITY_FACTORS = [
   {id:'major', label:'📚 专业质量', emoji:'📚'},
   {id:'job',   label:'💼 就业前景', emoji:'💼'},
@@ -433,6 +644,137 @@ const PRIORITY_FACTORS = [
   {id:'school',label:'🏛️ 学校排名', emoji:'🏛️'},
   {id:'research',label:'🔬 科研氛围', emoji:'🔬'},
   {id:'env',   label:'🌿 校园环境', emoji:'🌿'},
+];
+const PREFERENCE_BUBBLES = [
+  {
+    id: 'city', label: '城市地域', signal_type: 'explicit_preference',
+    children: [
+      {id:'city_tier1', label:'一线城市'},
+      {id:'city_new_tier1', label:'新一线/省会'},
+      {id:'city_near_home', label:'离家近'},
+      {id:'city_climate', label:'气候舒适'},
+      {id:'city_transport', label:'交通方便'},
+      {id:'city_opportunities', label:'城市机会多'},
+    ],
+  },
+  {
+    id: 'major_quality', label: '专业质量', signal_type: 'explicit_preference',
+    children: [
+      {id:'major_discipline', label:'学科实力'},
+      {id:'major_practical', label:'课程实用'},
+      {id:'major_lab', label:'实验资源'},
+      {id:'major_competition', label:'竞赛氛围'},
+      {id:'major_industry', label:'行业认可'},
+      {
+        id:'major_computer', label:'计算机方向',
+        children: [
+          {id:'cs_ai', label:'人工智能'},
+          {id:'cs_software', label:'软件开发'},
+          {id:'cs_security', label:'网络安全'},
+          {id:'cs_data', label:'数据科学'},
+          {id:'cs_embedded', label:'嵌入式/硬件'},
+          {id:'cs_graphics', label:'游戏/图形'},
+          {id:'cs_product', label:'产品与交互'},
+          {id:'cs_research', label:'科研算法'},
+        ],
+      },
+    ],
+  },
+  {
+    id: 'employment', label: '就业前景', signal_type: 'explicit_preference',
+    children: [
+      {id:'job_salary', label:'薪资潜力'},
+      {id:'job_stable', label:'稳定就业'},
+      {id:'job_big_company', label:'大厂机会'},
+      {id:'job_public', label:'考公考编'},
+      {id:'job_internship', label:'实习资源'},
+      {id:'job_campus_recruit', label:'校招质量'},
+    ],
+  },
+  {
+    id: 'postgrad', label: '升学发展', signal_type: 'explicit_preference',
+    children: [
+      {id:'pg_recommend', label:'保研率'},
+      {id:'pg_exam', label:'考研氛围'},
+      {id:'pg_abroad', label:'出国交流'},
+      {id:'pg_mentor', label:'导师资源'},
+      {id:'pg_path', label:'本硕博路径'},
+      {id:'pg_school_level', label:'升学学校层次'},
+    ],
+  },
+  {
+    id: 'school_level', label: '学校层次', signal_type: 'explicit_preference',
+    children: [
+      {
+        id:'school_985', label:'985',
+        children: [
+          {id:'school_985_top', label:'顶尖综合'},
+          {id:'school_985_engineering', label:'强工科'},
+          {id:'school_985_social', label:'强文社科'},
+          {id:'school_985_medical', label:'医学强校'},
+        ],
+      },
+      {
+        id:'school_211', label:'211',
+        children: [
+          {id:'school_211_industry', label:'行业特色'},
+          {id:'school_211_region', label:'区域认可'},
+          {id:'school_211_stable', label:'就业稳定'},
+        ],
+      },
+      {
+        id:'school_double_first', label:'双一流',
+        children: [
+          {id:'school_dfu', label:'一流大学'},
+          {id:'school_dfs', label:'一流学科'},
+          {id:'school_major_gt_name', label:'专业强于学校名气'},
+        ],
+      },
+      {id:'school_industry', label:'行业强校'},
+      {id:'school_province', label:'省内认可'},
+      {id:'school_rank', label:'综合排名'},
+    ],
+  },
+  {
+    id: 'life', label: '生活环境', signal_type: 'explicit_preference',
+    children: [
+      {id:'life_dorm', label:'宿舍环境'},
+      {id:'life_canteen', label:'食堂质量'},
+      {id:'life_area', label:'校区面积'},
+      {id:'life_safety', label:'校园安全'},
+      {id:'life_sports', label:'运动设施'},
+      {id:'life_convenience', label:'周边便利'},
+    ],
+  },
+  {
+    id: 'learning_style', label: '学习方式', signal_type: 'fit_signal',
+    children: [
+      {id:'learn_hands_on', label:'喜欢动手实践'},
+      {id:'learn_research', label:'喜欢深入研究'},
+      {id:'learn_team', label:'喜欢团队项目'},
+      {id:'learn_explore', label:'喜欢自由探索'},
+      {id:'learn_guided', label:'希望有人带着学'},
+    ],
+  },
+  {
+    id: 'growth_pace', label: '成长节奏', signal_type: 'fit_signal',
+    children: [
+      {id:'growth_challenge', label:'希望挑战更高'},
+      {id:'growth_safe', label:'希望稳妥一点'},
+      {id:'growth_interest', label:'重视兴趣感'},
+      {id:'growth_certainty', label:'重视确定性'},
+      {id:'growth_transfer', label:'想保留转专业空间'},
+    ],
+  },
+  {
+    id: 'cost', label: '费用与培养方式', signal_type: 'explicit_preference',
+    children: [
+      {id:'cost_normal', label:'普通学费优先'},
+      {id:'cost_sino_ok', label:'可接受中外合作'},
+      {id:'cost_scholarship', label:'希望奖助学金多'},
+      {id:'cost_sensitive', label:'费用敏感'},
+    ],
+  },
 ];
 
 // 状态
@@ -443,37 +785,419 @@ const state = {
   likedSubjects: new Set(),
   dislikedSubjects: new Set(),
   personalityTraits: new Set(),
+  selectedPreferenceIds: new Set(),
+  expandedPreferenceIds: new Set(),
   preferredCities: new Set(),
   excludedCities: new Set(),
   priorityOrder: PRIORITY_FACTORS.map(f => f.id),
 };
 
+function getToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+function validateAuthFields() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const passwordConfirm = document.getElementById('auth-password-confirm').value;
+  const errors = [];
+
+  if (!USERNAME_RULE.test(username)) {
+    errors.push('用户名需为3-20位，只能包含英文字母、数字和下划线');
+  }
+  if (password.length < 8 || password.length > 32) {
+    errors.push('密码需为8-32位');
+  }
+  if (/\s/.test(password)) {
+    errors.push('密码不能包含空格');
+  }
+  if (!PASSWORD_HAS_LETTER.test(password) || !PASSWORD_HAS_DIGIT.test(password)) {
+    errors.push('密码需同时包含字母和数字');
+  }
+  if (authMode === 'register' && password !== passwordConfirm) {
+    errors.push('两次输入的密码不一致');
+  }
+  return errors;
+}
+
+function showAuthRules() {
+  if (authMode === 'register') {
+    document.getElementById('auth-rules')?.classList.add('visible');
+    updateAuthRuleState();
+  }
+}
+
+function setRuleState(id, valid, touched) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('valid', touched && valid);
+  el.classList.toggle('invalid', touched && !valid);
+}
+
+function updateAuthRuleState() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const passwordConfirm = document.getElementById('auth-password-confirm').value;
+  const isRegister = authMode === 'register';
+
+  document.getElementById('auth-rules')?.classList.toggle('visible', isRegister);
+  document.getElementById('rule-password-confirm')?.classList.toggle('hidden', !isRegister);
+  setRuleState('rule-username', USERNAME_RULE.test(username), username.length > 0);
+  setRuleState('rule-password-length', password.length >= 8 && password.length <= 32, password.length > 0);
+  setRuleState('rule-password-combo', PASSWORD_HAS_LETTER.test(password) && PASSWORD_HAS_DIGIT.test(password), password.length > 0);
+  setRuleState('rule-password-space', !/\s/.test(password), password.length > 0);
+  setRuleState('rule-password-confirm', isRegister && password === passwordConfirm && passwordConfirm.length > 0, isRegister && passwordConfirm.length > 0);
+}
+
+function getAuthErrorMessage(data) {
+  if (typeof data?.detail === 'string') return data.detail;
+  if (Array.isArray(data?.detail) && data.detail.length) {
+    return data.detail.map(item => item.msg || item.message || '输入格式不正确').join('；');
+  }
+  return data?.message || '认证失败';
+}
+
+async function apiFetch(url, options = {}) {
+  const headers = {'Content-Type': 'application/json', ...(options.headers || {})};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, {...options, headers});
+  if (res.status === 401) {
+    logout(false);
+    throw new Error('请先登录');
+  }
+  return res;
+}
+
+function refreshAuthUI() {
+  const token = getToken();
+  const user = JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null');
+  const loggedIn = !!token && !!user;
+  const status = document.getElementById('auth-status');
+  if (status) {
+    status.textContent = loggedIn ? `已登录：${user.username}` : (authMode === 'login' ? '登录后开始填写志愿信息' : '注册后自动登录');
+  }
+  document.getElementById('logout-btn')?.classList.toggle('hidden', !loggedIn);
+}
+
+function showAuthPanel(mode = 'login') {
+  switchAuthMode(mode);
+  document.getElementById('auth-panel').classList.remove('hidden');
+  document.getElementById('start-btn')?.classList.add('hidden');
+  document.getElementById('auth-username').focus();
+}
+
+function hideAuthPanel() {
+  document.getElementById('auth-panel').classList.add('hidden');
+  if (!getToken() && !document.getElementById('hero-section')?.classList.contains('hidden')) {
+    document.getElementById('start-btn')?.classList.remove('hidden');
+  }
+}
+
+function switchAuthMode(mode) {
+  authMode = mode;
+  const isRegister = authMode === 'register';
+  document.getElementById('auth-title').textContent = isRegister ? '注册账号' : '登录账号';
+  document.getElementById('auth-submit-btn').textContent = isRegister ? '完成注册' : '登录';
+  document.getElementById('auth-switch-btn').textContent = isRegister ? '返回登录' : '注册账号';
+  document.getElementById('auth-switch-btn').setAttribute('onclick', `switchAuthMode('${isRegister ? 'login' : 'register'}')`);
+  document.getElementById('auth-password-confirm').classList.toggle('hidden', !isRegister);
+  document.getElementById('auth-rules')?.classList.toggle('visible', isRegister);
+  document.getElementById('auth-error').textContent = '';
+  updateAuthRuleState();
+  refreshAuthUI();
+}
+
+async function submitAuth() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const passwordConfirm = document.getElementById('auth-password-confirm').value;
+  const err = document.getElementById('auth-error');
+  err.textContent = '';
+  if (!username || !password) {
+    err.textContent = '请输入用户名和密码';
+    return;
+  }
+  if (authMode === 'register') {
+    const validationErrors = validateAuthFields();
+    updateAuthRuleState();
+    if (validationErrors.length) {
+      err.textContent = validationErrors[0];
+      return;
+    }
+  }
+  try {
+    const res = await fetch(`/api/v1/auth/${authMode}`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username, password}),
+    });
+    const data = await res.json();
+    if (!res.ok || data.code !== 200) throw new Error(getAuthErrorMessage(data));
+    localStorage.setItem(AUTH_TOKEN_KEY, data.data.token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.data.user));
+    document.getElementById('auth-password').value = '';
+    document.getElementById('auth-password-confirm').value = '';
+    refreshAuthUI();
+    hideAuthPanel();
+    enterForm();
+  } catch (e) {
+    err.textContent = e.message;
+  }
+}
+
+function logout(showMessage = true) {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+  refreshAuthUI();
+  if (!document.getElementById('auth-panel')?.classList.contains('hidden')) {
+    document.getElementById('start-btn')?.classList.add('hidden');
+  }
+  if (showMessage) document.getElementById('auth-error').textContent = '已退出登录';
+}
+
 // ════════════════════════════════════════════════
 // 初始化标签
 // ════════════════════════════════════════════════
-function createTagGroup(containerId, items, stateSet, allowConflict) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = '';
-  items.forEach(item => {
-    const btn = document.createElement('button');
-    btn.className = 'tag-btn text-sm px-3 py-1 rounded-lg';
-    btn.textContent = item;
-    btn.dataset.value = item;
-    btn.addEventListener('click', () => {
-      stateSet.has(item) ? stateSet.delete(item) : stateSet.add(item);
-      btn.classList.toggle('active', stateSet.has(item));
-    });
-    container.appendChild(btn);
+function syncTagGroup(containerId, stateSet, options = {}) {
+  document.querySelectorAll(`#${containerId} .tag-btn`).forEach(btn => {
+    const value = btn.dataset.value;
+    const isLockedLiked = options.lockedLikedSet?.has(value);
+    btn.classList.toggle('locked-liked', !!isLockedLiked);
+    btn.classList.toggle('active', !isLockedLiked && stateSet.has(value));
+    btn.disabled = !!isLockedLiked;
   });
 }
 
+function createTagGroup(containerId, items, stateSet, options = {}) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  items.forEach(item => {
+    const value = typeof item === 'string' ? item : item.category;
+    const btn = document.createElement('button');
+    btn.className = options.card
+      ? `tag-btn major-card ${options.tone || ''} text-left rounded-xl`
+      : 'tag-btn text-sm px-3 py-1 rounded-lg';
+    btn.dataset.value = value;
+    if (options.card && typeof item !== 'string') {
+      btn.innerHTML = `<span class="major-card-title">${item.category}</span><span class="major-card-desc">${item.majors}</span>`;
+    } else {
+      btn.textContent = value;
+    }
+    btn.addEventListener('click', () => {
+      if (stateSet.has(value)) {
+        stateSet.delete(value);
+      } else {
+        stateSet.add(value);
+        if (options.conflictSet) {
+          options.conflictSet.delete(value);
+          syncTagGroup(options.conflictContainerId, options.conflictSet, options.conflictSyncOptions || {});
+        }
+      }
+      syncTagGroup(containerId, stateSet, options);
+    });
+    container.appendChild(btn);
+  });
+  syncTagGroup(containerId, stateSet, options);
+}
+
+function walkPreferenceNodes(nodes, callback, path = [], root = null) {
+  nodes.forEach(node => {
+    const currentRoot = root || node;
+    const nextPath = [...path, node.label];
+    callback(node, nextPath, currentRoot);
+    if (node.children?.length) {
+      walkPreferenceNodes(node.children, callback, nextPath, currentRoot);
+    }
+  });
+}
+
+function getPreferenceNodeById(id) {
+  let match = null;
+  walkPreferenceNodes(PREFERENCE_BUBBLES, (node, path, root) => {
+    if (node.id === id) match = {node, path, root};
+  });
+  return match;
+}
+
+function renderPreferenceBubbles() {
+  const container = document.getElementById('preference-bubbles');
+  if (!container) return;
+  container.innerHTML = '';
+  PREFERENCE_BUBBLES.forEach(root => {
+    const group = document.createElement('div');
+    group.className = 'bubble-group';
+    group.appendChild(createBubbleButton(root, [root.label], root, 1));
+    if (state.expandedPreferenceIds.has(root.id)) {
+      group.appendChild(createBubbleRow(root.children || [], [root.label], root, 2));
+    }
+    container.appendChild(group);
+  });
+  renderSelectedPreferenceTags();
+}
+
+function createBubbleRow(nodes, parentPath, root, depth) {
+  const row = document.createElement('div');
+  row.className = `bubble-row child depth-${depth}`;
+  nodes.forEach(node => {
+    row.appendChild(createBubbleButton(node, [...parentPath, node.label], root, depth));
+    if (node.children?.length && state.expandedPreferenceIds.has(node.id)) {
+      row.appendChild(createBubbleRow(node.children, [...parentPath, node.label], root, depth + 1));
+    }
+  });
+  return row;
+}
+
+function createBubbleButton(node, path, root, depth) {
+  const btn = document.createElement('button');
+  const hasChildren = !!node.children?.length;
+  btn.type = 'button';
+  btn.className = `bubble-btn ${depth === 1 ? 'root' : ''}`;
+  btn.classList.toggle('expanded', hasChildren && state.expandedPreferenceIds.has(node.id));
+  btn.classList.toggle('selected', !hasChildren && state.selectedPreferenceIds.has(node.id));
+  btn.innerHTML = `${node.label}${hasChildren ? '<span class="bubble-hint">展开</span>' : ''}`;
+  btn.addEventListener('click', () => {
+    if (hasChildren) {
+      state.expandedPreferenceIds.has(node.id)
+        ? state.expandedPreferenceIds.delete(node.id)
+        : state.expandedPreferenceIds.add(node.id);
+    } else if (state.selectedPreferenceIds.has(node.id)) {
+      state.selectedPreferenceIds.delete(node.id);
+    } else {
+      state.selectedPreferenceIds.add(node.id);
+      reconcilePreferenceConflicts(node.id);
+    }
+    renderPreferenceBubbles();
+  });
+  return btn;
+}
+
+function reconcilePreferenceConflicts(selectedId) {
+  if (selectedId === 'cost_sino_ok') {
+    state.selectedPreferenceIds.delete('cost_normal');
+    state.selectedPreferenceIds.delete('cost_sensitive');
+  }
+  if (selectedId === 'cost_normal' || selectedId === 'cost_sensitive') {
+    state.selectedPreferenceIds.delete('cost_sino_ok');
+  }
+}
+
+function getSelectedPreferenceItems() {
+  const items = [];
+  walkPreferenceNodes(PREFERENCE_BUBBLES, (node, path, root) => {
+    if (!state.selectedPreferenceIds.has(node.id)) return;
+    items.push({
+      id: node.id,
+      label: node.label,
+      path,
+      depth: path.length,
+      category: root.label,
+      signal_type: node.signal_type || root.signal_type || 'explicit_preference',
+    });
+  });
+  return items;
+}
+
+function renderSelectedPreferenceTags() {
+  const container = document.getElementById('selected-preference-tags');
+  if (!container) return;
+  const items = getSelectedPreferenceItems();
+  if (!items.length) {
+    container.innerHTML = '<span class="text-xs text-slate-500">还没有选择，可以先点开上面的气泡看看。</span>';
+    return;
+  }
+  container.innerHTML = '';
+  items.forEach(item => {
+    const tag = document.createElement('span');
+    tag.className = 'selected-bubble-tag';
+    tag.innerHTML = `<span>${item.path.join(' / ')}</span>`;
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.textContent = '×';
+    close.addEventListener('click', () => {
+      state.selectedPreferenceIds.delete(item.id);
+      renderPreferenceBubbles();
+    });
+    tag.appendChild(close);
+    container.appendChild(tag);
+  });
+}
+
+function derivePriorityFactors(preferenceItems) {
+  if (!preferenceItems.length) {
+    return PRIORITY_FACTORS.map((item, i) => ({
+      factor: item.label.replace(/^[^\s]*\s/, ''),
+      rank: i + 1,
+    }));
+  }
+  const summary = new Map();
+  preferenceItems.forEach((item, index) => {
+    const current = summary.get(item.category) || {factor: item.category, count: 0, firstIndex: index};
+    current.count += 1;
+    current.firstIndex = Math.min(current.firstIndex, index);
+    summary.set(item.category, current);
+  });
+  return [...summary.values()]
+    .sort((a, b) => b.count - a.count || a.firstIndex - b.firstIndex)
+    .map((item, i) => ({factor: item.factor, rank: i + 1}));
+}
+
+function derivePersonalityTraits(preferenceItems) {
+  const traits = preferenceItems
+    .filter(item => item.signal_type === 'fit_signal')
+    .map(item => item.label);
+  return [...new Set(traits)];
+}
+
+function deriveCareerVision(preferenceItems) {
+  const careerLabels = preferenceItems
+    .filter(item => ['专业质量', '就业前景'].includes(item.category))
+    .map(item => item.label);
+  const unique = [...new Set(careerLabels)].slice(0, 6);
+  return unique.length ? `关注${unique.join('、')}` : '';
+}
+
+function deriveAcceptSinoForeign(preferenceItems) {
+  const ids = new Set(preferenceItems.map(item => item.id));
+  if (ids.has('cost_sino_ok')) return true;
+  if (ids.has('cost_normal') || ids.has('cost_sensitive')) return false;
+  return state.sino;
+}
+
 function initTagGroups() {
-  createTagGroup('liked-subjects', SUBJECTS, state.likedSubjects);
-  createTagGroup('disliked-subjects', SUBJECTS, state.dislikedSubjects);
-  createTagGroup('personality-tags', PERSONALITIES, state.personalityTraits);
-  createTagGroup('preferred-cities', CITIES_POPULAR, state.preferredCities);
-  createTagGroup('excluded-cities', CITIES_ALL, state.excludedCities);
-  initPriorityList();
+  createTagGroup('liked-subjects', MAJOR_DIRECTIONS, state.likedSubjects, {
+    card: true,
+    tone: 'liked',
+    conflictSet: state.dislikedSubjects,
+    conflictContainerId: 'disliked-subjects',
+    conflictSyncOptions: {
+      lockedLikedSet: state.likedSubjects,
+    },
+  });
+  createTagGroup('disliked-subjects', MAJOR_DIRECTIONS, state.dislikedSubjects, {
+    card: true,
+    tone: 'disliked',
+    lockedLikedSet: state.likedSubjects,
+  });
+  createTagGroup('preferred-cities', CITIES_POPULAR, state.preferredCities, {
+    conflictSet: state.excludedCities,
+    conflictContainerId: 'excluded-cities',
+  });
+  createTagGroup('excluded-cities', CITIES_ALL, state.excludedCities, {
+    conflictSet: state.preferredCities,
+    conflictContainerId: 'preferred-cities',
+  });
+  renderPreferenceBubbles();
+}
+
+function syncAllTagGroups() {
+  syncTagGroup('liked-subjects', state.likedSubjects);
+  syncTagGroup('disliked-subjects', state.dislikedSubjects, {
+    lockedLikedSet: state.likedSubjects,
+  });
+  syncTagGroup('preferred-cities', state.preferredCities);
+  syncTagGroup('excluded-cities', state.excludedCities);
+  renderPreferenceBubbles();
 }
 
 // ════════════════════════════════════════════════
@@ -481,6 +1205,7 @@ function initTagGroups() {
 // ════════════════════════════════════════════════
 function initPriorityList() {
   const list = document.getElementById('priority-list');
+  if (!list) return;
   list.innerHTML = '';
   state.priorityOrder.forEach((id, idx) => {
     const factor = PRIORITY_FACTORS.find(f => f.id === id);
@@ -517,10 +1242,19 @@ function initPriorityList() {
 // ════════════════════════════════════════════════
 // 步骤控制
 // ════════════════════════════════════════════════
-function showForm() {
+function enterForm() {
   document.getElementById('hero-section').classList.add('hidden');
   document.getElementById('form-section').classList.remove('hidden');
   initTagGroups();
+}
+
+function showForm() {
+  if (!getToken()) {
+    showAuthPanel('login');
+    document.getElementById('auth-error').textContent = '请先登录或注册，再开始填写志愿信息';
+    return;
+  }
+  enterForm();
 }
 
 function nextStep(current) {
@@ -531,6 +1265,7 @@ function nextStep(current) {
   document.getElementById(`dot-${current}`).classList.replace('active','done');
   document.getElementById(`dot-${next}`).classList.add('active');
   state.currentStep = next;
+  syncAllTagGroups();
 }
 
 function prevStep(current) {
@@ -540,6 +1275,7 @@ function prevStep(current) {
   document.getElementById(`dot-${current}`).classList.remove('active');
   document.getElementById(`dot-${prev}`).classList.replace('done','active');
   state.currentStep = prev;
+  syncAllTagGroups();
 }
 
 function validateStep(step) {
@@ -562,23 +1298,33 @@ function validateStep(step) {
 function setToggle(type, val) {
   if (type === 'postgrad') {
     state.postgrad = val === 'yes';
-    document.getElementById('postgrad-yes').classList.toggle('active', state.postgrad);
-    document.getElementById('postgrad-no').classList.toggle('active', !state.postgrad);
+    document.getElementById('postgrad-yes')?.classList.toggle('active', state.postgrad);
+    document.getElementById('postgrad-no')?.classList.toggle('active', !state.postgrad);
   } else {
     state.sino = val === 'yes';
-    document.getElementById('sino-yes').classList.toggle('active', state.sino);
-    document.getElementById('sino-no').classList.toggle('active', !state.sino);
+    document.getElementById('sino-yes')?.classList.toggle('active', state.sino);
+    document.getElementById('sino-no')?.classList.toggle('active', !state.sino);
   }
 }
 
 // ════════════════════════════════════════════════
 // 预算滑块
 // ════════════════════════════════════════════════
+function getBudgetMax() {
+  const slider = document.getElementById('budget-slider');
+  const ratio = parseInt(slider.value, 10) / 100;
+  const curved = BUDGET_MAX * Math.pow(ratio, 3);
+  return Math.round(curved / 1000) * 1000;
+}
+
 function updateBudget() {
-  const mn = parseInt(document.getElementById('budget-min').value);
-  const mx = parseInt(document.getElementById('budget-max').value);
+  const mx = getBudgetMax();
   document.getElementById('budget-display').textContent =
-    `${mn.toLocaleString()} ~ ${Math.max(mn, mx).toLocaleString()}`;
+    `0 ~ ${mx.toLocaleString()}`;
+}
+
+function reconcileCityPreferences() {
+  state.preferredCities.forEach(city => state.excludedCities.delete(city));
 }
 
 // ════════════════════════════════════════════════
@@ -588,6 +1334,10 @@ async function submitProfile() {
   const btn = document.getElementById('submit-btn');
   btn.disabled = true;
   btn.innerHTML = '<span class="animate-spin">⏳</span> 提交中...';
+  reconcileCityPreferences();
+  const budgetMax = getBudgetMax();
+  const preferenceTree = getSelectedPreferenceItems();
+  const acceptPostgrad = preferenceTree.some(item => item.category === '升学发展') || state.postgrad;
 
   const payload = {
     province:          document.getElementById('province').value,
@@ -599,27 +1349,28 @@ async function submitProfile() {
     math_level:        document.getElementById('math_level').value,
     english_level:     document.getElementById('english_level').value,
     physics_level:     document.getElementById('physics_level').value,
-    personality_traits:[...state.personalityTraits],
-    career_vision:     document.getElementById('career_vision').value,
-    annual_budget_min: parseInt(document.getElementById('budget-min').value),
-    annual_budget_max: parseInt(document.getElementById('budget-max').value),
+    personality_traits: derivePersonalityTraits(preferenceTree),
+    career_vision:     deriveCareerVision(preferenceTree),
+    annual_budget_min: 0,
+    annual_budget_max: budgetMax,
     preferred_cities:  [...state.preferredCities],
     excluded_cities:   [...state.excludedCities],
-    accept_postgrad:   state.postgrad,
-    accept_sino_foreign: state.sino,
-    priority_factors:  state.priorityOrder.map((id, i) => ({factor: PRIORITY_FACTORS.find(f=>f.id===id).label.replace(/^[^\s]*\s/,''), rank: i+1})),
+    accept_postgrad:   acceptPostgrad,
+    accept_sino_foreign: deriveAcceptSinoForeign(preferenceTree),
+    priority_factors:  derivePriorityFactors(preferenceTree),
+    preference_tree:   preferenceTree,
     extra_notes:       document.getElementById('extra_notes').value,
   };
 
   // 1. 提交画像
   let uuid;
   try {
-    const res = await fetch('/api/v1/profile', {
+    const res = await apiFetch('/api/v1/profile', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload),
     });
     const data = await res.json();
+    if (!res.ok || data.code !== 200) throw new Error(data.detail || data.message || '画像保存失败');
     uuid = data.data.uuid;
   } catch (e) {
     alert('提交失败，请检查后端服务是否启动：' + e.message);
@@ -640,51 +1391,19 @@ async function submitProfile() {
     stageList.appendChild(div);
   }
 
-  // 3. SSE 推荐流（fetch + ReadableStream，因 EventSource 仅支持 GET）
-  const progressStages = { rule_engine: 20, llm_enriching: 55, llm_classifying: 85, llm_retry: 60 };
-  let candidates = [];
-
-  // 3分钟超时兜底
-  const abortCtrl = new AbortController();
-  const timeoutId = setTimeout(() => abortCtrl.abort(), 20 * 60 * 1000);
-
-  function showError(msg) {
-    clearTimeout(timeoutId);
-    document.getElementById('loading-section').classList.add('hidden');
-    document.getElementById('form-section').classList.remove('hidden');
-    btn.disabled = false;
-    btn.innerHTML = '<span>🚀 开始 AI 分析</span>';
-    alert('分析失败：' + msg);
-  }
-
-  let response;
-  try {
-    response = await fetch('/api/v1/preliminary', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({uuid}),
-    });
-    const resData = await response.json();
-    if (resData.code === 200) {
-      sessionStorage.setItem('gaokao_uuid', uuid);
-      sessionStorage.setItem('gaokao_candidates', JSON.stringify(resData.data.candidates || []));
-      sessionStorage.setItem('gaokao_ai_done', 'false');
-      sessionStorage.setItem('gaokao_profile_summary', JSON.stringify({
-        province: payload.province,
-        subject_type: payload.subject_type,
-        gaokao_score: payload.gaokao_score,
-        province_rank: payload.province_rank,
-      }));
-      window.location.href = '/result';
-    } else {
-      showError(resData.message || '获取初步筛选结果失败');
-    }
-  } catch (e) {
-    showError('请求推荐失败：' + e.message);
-  }
+  addStage('画像已保存，正在进入 AI 筛选结果页...');
+  sessionStorage.setItem('gaokao_uuid', uuid);
+  sessionStorage.setItem('gaokao_candidates', JSON.stringify([]));
+  sessionStorage.setItem('gaokao_ai_done', 'false');
+  sessionStorage.setItem('gaokao_profile_summary', JSON.stringify({
+    province: payload.province,
+    subject_type: payload.subject_type,
+    gaokao_score: payload.gaokao_score,
+    province_rank: payload.province_rank,
+  }));
+  window.location.href = '/result';
 }
+refreshAuthUI();
 </script>
 </body>
 </html>
-
-

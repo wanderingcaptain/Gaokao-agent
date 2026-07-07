@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from database.models import init_db
-from routers import profile, recommend, detail
+from routers import auth, profile, recommend, detail
 
 load_dotenv()
 
@@ -34,6 +34,7 @@ app.add_middleware(
 app.include_router(profile.router)
 app.include_router(recommend.router)
 app.include_router(detail.router)
+app.include_router(auth.router)
 
 # ── 静态文件（前端）──────────────────────────
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")

@@ -92,6 +92,61 @@ class AdmissionRecord(Base):
     )
 
 
+# ──────────────────────────────────────────────
+# 表4：系统用户
+# ──────────────────────────────────────────────
+class User(Base):
+    __tablename__ = "users"
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    username      = Column(Text, nullable=False, unique=True)
+    password_hash = Column(Text, nullable=False)
+    created_at    = Column(Text, nullable=False)
+    updated_at    = Column(Text, nullable=False)
+
+    __table_args__ = (
+        Index("idx_users_username", "username"),
+    )
+
+
+# ──────────────────────────────────────────────
+# 表5：用户画像归属
+# ──────────────────────────────────────────────
+class UserProfile(Base):
+    __tablename__ = "user_profiles"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, nullable=False)
+    profile_uuid = Column(Text, nullable=False)
+    profile_json = Column(Text, nullable=False)
+    created_at   = Column(Text, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "profile_uuid", name="uq_user_profile_uuid"),
+        Index("idx_user_profiles_user_uuid", "user_id", "profile_uuid"),
+    )
+
+
+# ──────────────────────────────────────────────
+# 表6：推荐结果历史
+# ──────────────────────────────────────────────
+class RecommendationResult(Base):
+    __tablename__ = "recommendation_results"
+
+    id           = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, nullable=False)
+    profile_uuid = Column(Text, nullable=False)
+    result_json  = Column(Text, nullable=False)
+    fallback     = Column(Integer, nullable=False, default=0)
+    summary      = Column(Text)
+    created_at   = Column(Text, nullable=False)
+
+    __table_args__ = (
+        Index("idx_recommendation_user_created", "user_id", "created_at"),
+        Index("idx_recommendation_user_profile", "user_id", "profile_uuid"),
+    )
+
+
 def init_db():
     """建表（幂等操作，已存在则跳过）"""
     Base.metadata.create_all(bind=engine)

@@ -81,10 +81,6 @@ def run_import():
             subtitle = record.get("major_subtitle", "").strip()
             specialized = record.get("specialized", "").strip()
             
-            full_major_name = major_name
-            if subtitle:
-                full_major_name += f" {subtitle}"
-                
             enrollment_type = "普通类"
             if "中外合作" in specialized or "中外合作" in subtitle:
                 enrollment_type = "中外合作办学"
@@ -96,7 +92,8 @@ def run_import():
             new_record = AdmissionRecord(
                 university_id=univ_id,
                 university_name=school_name,
-                major_name=full_major_name.strip(),
+                major_name=major_name.strip(),
+                major_category=subtitle,
                 enrollment_type=enrollment_type,
                 province="广东",
                 subject_type=subject_type,

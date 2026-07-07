@@ -1,8 +1,13 @@
 """路由：用户画像的创建与读取"""
-from fastapi import APIRouter, HTTPException
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
-from services.profile_service import create_profile, get_profile
+from sqlalchemy.orm import Session
+
+from database.models import User, UserProfile, get_db
+from services.auth_service import get_current_user
+from services.profile_service import build_profile, get_profile, save_profile
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
 
@@ -10,6 +15,15 @@ router = APIRouter(prefix="/api/v1", tags=["profile"])
 class PriorityFactor(BaseModel):
     factor: str
     rank: int
+
+
+class PreferenceTreeItem(BaseModel):
+    id: str
+    label: str
+    path: list[str]
+    depth: int
+    category: str
+    signal_type: str
 
 
 class ProfileCreateRequest(BaseModel):
@@ -28,24 +42,48 @@ class ProfileCreateRequest(BaseModel):
     career_vision: str = ""
 
     annual_budget_min: int = 0
-    annual_budget_max: int = 100000
+    annual_budget_max: int = 150000
     preferred_cities: list[str] = []
     excluded_cities: list[str] = []
     accept_postgrad: bool = True
     accept_sino_foreign: bool = False
 
     priority_factors: list[PriorityFactor] = []
+    preference_tree: list[PreferenceTreeItem] = []
     extra_notes: str = ""
 
 
 @router.post("/profile")
-async def create_user_profile(body: ProfileCreateRequest):
-    uid = create_profile(body.model_dump())
+async def create_user_profile(
+    body: ProfileCreateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = build_profile(body.model_dump())
+    uid = save_profile(profile)
+    db.add(UserProfile(
+        user_id=current_user.id,
+        profile_uuid=uid,
+        profile_json=json.dumps(profile, ensure_ascii=False),
+        created_at=profile["created_at"],
+    ))
+    db.commit()
     return {"code": 200, "message": "success", "data": {"uuid": uid}}
 
 
 @router.get("/profile/{uuid}")
-async def get_user_profile(uuid: str):
+async def get_user_profile(
+    uuid: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    owned = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == current_user.id, UserProfile.profile_uuid == uuid)
+        .first()
+    )
+    if not owned:
+        raise HTTPException(status_code=404, detail="用户画像不存在")
     profile = get_profile(uuid)
     if not profile:
         raise HTTPException(status_code=404, detail="用户画像不存在")
