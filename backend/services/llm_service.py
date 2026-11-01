@@ -1,112 +1,17 @@
-"""
-LLM 服务：封装 Qwen API 调用。
-
-包含：
-  1. enrich_and_classify() — 分批筛选硬筛候选，并汇总成最终冲稳保榜单。
-  2. generate_detail_ui()  — 生成详情页 HTML + ECharts 配置。
-"""
+"""LLM 相关能力：详情报告生成，以及 Agent 使用的结果处理工具。"""
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import re
-import time
 from collections import defaultdict
 
 from dotenv import load_dotenv
-from openai import OpenAI
 
-
-# 禁用代理，防止本地代理导致 API 请求极慢或超时
-os.environ["HTTP_PROXY"] = ""
-os.environ["HTTPS_PROXY"] = ""
-os.environ["ALL_PROXY"] = ""
 
 load_dotenv()
 
-_client: OpenAI | None = None
-
-
-def _get_client() -> OpenAI:
-    """
-    延迟初始化 OpenAI 客户端（使用 openai 标准库）。
-    api_key 和 base_url 均从 .env 环境变量读取：
-      QWEN_API_KEY  — 阿里云百炼平台 API Key
-      QWEN_BASE_URL — 兼容 OpenAI 格式的接入点（默认 DashScope）
-    """
-    global _client
-    if _client is None:
-        api_key = os.getenv("QWEN_API_KEY")
-        base_url = os.getenv("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-        if not api_key:
-            raise ValueError(
-                "未找到 QWEN_API_KEY，请在 backend/.env 中配置：\n"
-                "  QWEN_API_KEY=your_key_here\n"
-                "  QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1"
-            )
-        _client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
-    return _client
-
-
-MODEL = os.getenv("QWEN_MODEL", "qwen-plus")
-_BATCH_SIZE = int(os.getenv("LLM_FILTER_BATCH_SIZE", "60"))
 _MAX_FINAL_CANDIDATES = int(os.getenv("LLM_FINAL_CANDIDATES", "45"))
-_MAX_BATCH_SELECTED = int(os.getenv("LLM_BATCH_SELECTED", "12"))
-
-
-# ──────────────────────────────────────────────────────────────────────
-# Prompt：批次初筛；最终汇总由后端排序完成
-# ──────────────────────────────────────────────────────────────────────
-_BATCH_FILTER_SYSTEM = """你是一个专业的高考志愿填报顾问。系统已经用真实录取数据完成了硬筛和冲稳保风险分层。
-
-你的任务：根据考生画像，从本批候选中筛出最值得进入最终评估的学校+专业。
-
-重要规则：
-1. tier 是规则层给出的录取风险标签，只能原样使用，不能改成其他梯度。
-2. 你负责个性化适配：专业兴趣、能力结构、城市、预算、职业方向、性格、优先级。
-3. 不要只迷信学校名气；专业匹配、城市接受度、风险结构都要纳入。
-4. 每批最多选择 12 个候选。若本批质量一般，可以少选。
-5. 输出必须非常精简，只输出 candidate_id、fit_score、reason、warnings、strategy_note。
-6. 输出必须是合法 JSON，不要 Markdown，不要代码块，不要补充解释。
-
-输出结构：
-{
-  "selected_candidates": [
-    {
-      "candidate_id": 0,
-      "fit_score": 88,
-      "reason": "不超过60字的个性化推荐理由",
-      "warnings": ["最多2条简短风险或注意事项"],
-      "strategy_note": "一句填报策略建议"
-    }
-  ]
-}"""
-
-
-_FINAL_SELECT_SYSTEM = """你是一个高考志愿方案总筛选专家。你会收到各批次入围候选，请生成最终展示给考生的冲稳保推荐榜单。
-
-硬性要求：
-1. tier 是规则层录取风险标签，必须原样保留，不能重新分层。
-2. 目标比例：冲 10%-20%，稳 50%-70%，保 15%-30%。候选不足时优先保证稳和保。
-3. 最多输出 45 个；如果高质量候选不足，可以少于 45 个。
-4. 同一学校同一专业只保留一次；同一学校过多时要控制重复，避免榜单单调。
-5. 每个候选必须有 fit_score、reason、warnings、strategy_note。
-6. 输出必须非常精简，只输出 candidate_id、fit_score、reason、warnings、strategy_note。
-7. 输出必须是合法 JSON，不要 Markdown，不要代码块，不要补充解释。
-
-输出结构：
-{
-  "candidates": [
-    {
-      "candidate_id": 0,
-      "fit_score": 90,
-      "reason": "不超过60字的最终推荐理由",
-      "warnings": ["最多2条简短风险或注意事项"],
-      "strategy_note": "一句填报策略建议"
-    }
-  ]
-}"""
 
 
 def _preference_tree_summary(profile: dict) -> str:
@@ -163,71 +68,6 @@ def _profile_prompt(profile: dict) -> str:
 - 个人补充：{profile.get('extra_notes') or '无'}"""
 
 
-def _compact_candidate(candidate: dict) -> dict:
-    history = []
-    for row in candidate.get("admission_history", []):
-        history.append([
-            row.get("year"),
-            row.get("min_rank"),
-            row.get("min_score"),
-            row.get("enrollment_count"),
-        ])
-    return {
-        "candidate_id": candidate["candidate_id"],
-        "school": candidate["university_name"],
-        "city": candidate["city"],
-        "school_type": candidate["university_type"],
-        "major": candidate["major_name"],
-        "enrollment_type": candidate["enrollment_type"],
-        "tier": candidate["tier"],
-        "risk_ratio": candidate.get("risk_ratio"),
-        "risk_score": candidate.get("risk_score"),
-        "tier_reason": candidate.get("tier_reason"),
-        "reference_rank": candidate.get("stable_reference_rank"),
-        "rank_trend": candidate.get("rank_trend"),
-        "rank_volatility": candidate.get("rank_volatility"),
-        "history": history,
-    }
-
-
-def _build_batch_prompt(profile: dict, batch: list[dict], batch_num: int, num_batches: int) -> str:
-    compact = [_compact_candidate(candidate) for candidate in batch]
-    return f"""{_profile_prompt(profile)}
-
-## 本批候选
-- 批次：{batch_num}/{num_batches}
-- 本批候选数：{len(compact)}
-- 字段说明：history=[年份,最低位次,最低分,招生人数]；risk_ratio=规则参考位次/考生位次。
-
-{json.dumps(compact, ensure_ascii=False, separators=(',', ':'))}
-
-请筛选本批最值得保留的候选，严格按 JSON 结构输出。"""
-
-
-def _build_final_prompt(profile: dict, shortlist: list[dict]) -> str:
-    compact = [_compact_candidate(candidate) | {
-        "fit_score": candidate.get("fit_score"),
-        "reason": candidate.get("reason"),
-            "warnings": candidate.get("warnings", [])[:2],
-            "strategy_note": candidate.get("strategy_note", ""),
-    } for candidate in shortlist]
-    counts = {tier: sum(1 for c in compact if c.get("tier") == tier) for tier in ["冲", "稳", "保"]}
-    return f"""{_profile_prompt(profile)}
-
-## 入围候选汇总
-- 入围候选数：{len(compact)}
-- 当前分布：冲 {counts['冲']} / 稳 {counts['稳']} / 保 {counts['保']}
-- 最终最多输出：{_MAX_FINAL_CANDIDATES}
-- 目标比例：冲10%-20%，稳50%-70%，保15%-30%。候选不足时优先保证稳和保。
-
-{json.dumps(compact, ensure_ascii=False, separators=(',', ':'))}
-
-请生成最终展示给考生的推荐榜单，严格按 JSON 结构输出。"""
-
-
-# ──────────────────────────────────────────────────────────────────────
-# JSON 调用与兜底
-# ──────────────────────────────────────────────────────────────────────
 def _safe_parse_json(text: str) -> dict:
     """尝试解析 JSON，若带有 markdown 包裹或前后废话则清洗。"""
     text = text.strip()
@@ -251,30 +91,6 @@ def _safe_parse_json(text: str) -> dict:
         return json.loads(repaired)
 
 
-def _chat_json(system_prompt: str, user_prompt: str, max_tokens: int) -> dict:
-    t0 = time.time()
-    stream = _get_client().chat.completions.create(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0.25,
-        max_tokens=max_tokens,
-        stream=True,
-        extra_body={"enable_search": False},
-    )
-
-    chunks = []
-    for chunk in stream:
-        delta = chunk.choices[0].delta if chunk.choices else None
-        if delta and delta.content:
-            chunks.append(delta.content)
-    raw = "".join(chunks)
-    print(f"[LLM] JSON 响应完成，耗时 {time.time() - t0:.1f}s，字符数={len(raw)}", flush=True)
-    return _safe_parse_json(raw)
-
-
 def _merge_llm_selection(candidates_by_id: dict[int, dict], rows: list[dict]) -> list[dict]:
     selected = []
     seen = set()
@@ -287,7 +103,7 @@ def _merge_llm_selection(candidates_by_id: dict[int, dict], rows: list[dict]) ->
             continue
         original = candidates_by_id[candidate_id]
         merged = dict(original)
-        merged["fit_score"] = max(0, min(100, int(row.get("fit_score") or original.get("fit_score") or 70)))
+        merged["fit_score"] = max(0, min(100, int(row["fit_score"])))
         merged["reason"] = row.get("reason") or original.get("reason") or original.get("tier_reason", "")
         merged["warnings"] = row.get("warnings") or original.get("warnings") or []
         merged["strategy_note"] = row.get("strategy_note") or original.get("strategy_note") or ""
@@ -371,83 +187,6 @@ def _finalize_shortlist(shortlist: list[dict], limit: int = _MAX_FINAL_CANDIDATE
         abs((x.get("risk_ratio") or 1) - 1),
     ))
     return selected
-
-
-async def enrich_and_classify(profile: dict, candidates: list[dict]):
-    """
-    异步生成器，yield SSE 事件字典。
-    事件类型：progress | result
-    """
-    total = len(candidates)
-    if not total:
-        yield {"event": "result", "data": {"candidates": [], "fallback": False}}
-        return
-
-    yield {"event": "progress", "data": {
-        "stage": "llm_batch_filtering",
-        "message": f"大模型开始分批筛选 {total} 个硬筛候选..."
-    }}
-
-    candidates_by_id = {candidate["candidate_id"]: candidate for candidate in candidates}
-    batches = [candidates[i:i + _BATCH_SIZE] for i in range(0, total, _BATCH_SIZE)]
-    shortlist = []
-    llm_errors = []
-
-    for batch_idx, batch in enumerate(batches):
-        batch_num = batch_idx + 1
-        yield {"event": "progress", "data": {
-            "stage": "llm_batch_filtering",
-            "message": f"AI 正在筛选第 {batch_num}/{len(batches)} 批候选（{len(batch)} 个，每批最多入围 {_MAX_BATCH_SELECTED} 个）..."
-        }}
-        try:
-            parsed = await asyncio.to_thread(
-                _chat_json,
-                _BATCH_FILTER_SYSTEM,
-                _build_batch_prompt(profile, batch, batch_num, len(batches)),
-                2048,
-            )
-            rows = parsed.get("selected_candidates") or parsed.get("candidates") or []
-            selected = _merge_llm_selection(candidates_by_id, rows)
-            shortlist.extend(selected[:_MAX_BATCH_SELECTED])
-            print(f"[LLM] 第 {batch_num}/{len(batches)} 批入围 {len(selected)} 个", flush=True)
-        except Exception as exc:
-            msg = str(exc)[:160]
-            llm_errors.append(msg)
-            print(f"[LLM] 第 {batch_num}/{len(batches)} 批筛选失败: {msg}", flush=True)
-            yield {"event": "progress", "data": {
-                "stage": "llm_retry",
-                "message": f"第 {batch_num} 批 AI 筛选失败，稍后使用规则兜底补齐..."
-            }}
-
-    if not shortlist:
-        fallback = _fallback_candidates(candidates)
-        yield {"event": "result", "data": {
-            "candidates": fallback,
-            "fallback": True,
-            "message": f"AI筛选失败，已返回规则备选结果：{'; '.join(llm_errors[:2])}"
-        }}
-        return
-
-    # 去重，避免同一候选在异常合并时重复出现。
-    unique_shortlist = []
-    seen = set()
-    for item in shortlist:
-        if item["candidate_id"] in seen:
-            continue
-        unique_shortlist.append(item)
-        seen.add(item["candidate_id"])
-
-    yield {"event": "progress", "data": {
-        "stage": "llm_final_selecting",
-        "message": f"正在汇总 {len(unique_shortlist)} 个 AI 入围候选，按冲稳保比例生成最终榜单..."
-    }}
-
-    final_candidates = _finalize_shortlist(unique_shortlist)
-    yield {"event": "result", "data": {
-        "candidates": final_candidates,
-        "fallback": False,
-        "message": f"AI 分批筛选完成，已从 {len(unique_shortlist)} 个入围候选中生成最终榜单"
-    }}
 
 
 # ──────────────────────────────────────────────────────────────────────

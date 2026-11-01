@@ -147,6 +147,29 @@ class RecommendationResult(Base):
     )
 
 
+class AgentTask(Base):
+    __tablename__ = "agent_tasks"
+    id = Column(Text, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    profile_uuid = Column(Text, nullable=False)
+    state_json = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, default="ready")
+    active_turn_id = Column(Text)
+    created_at = Column(Text, nullable=False)
+
+
+class AgentTurn(Base):
+    __tablename__ = "agent_turns"
+    id = Column(Text, primary_key=True)
+    task_id = Column(Text, nullable=False, index=True)
+    request_id = Column(Text, nullable=False)
+    status = Column(Text, nullable=False)
+    input_json = Column(Text, nullable=False)
+    events_json = Column(Text, nullable=False, default="[]")
+    created_at = Column(Text, nullable=False)
+    __table_args__ = (UniqueConstraint("task_id", "request_id", name="uq_agent_request"),)
+
+
 def init_db():
     """建表（幂等操作，已存在则跳过）"""
     Base.metadata.create_all(bind=engine)

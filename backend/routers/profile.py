@@ -2,7 +2,7 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.orm import Session
 
 from database.models import User, UserProfile, get_db
@@ -29,8 +29,8 @@ class PreferenceTreeItem(BaseModel):
 class ProfileCreateRequest(BaseModel):
     province: str
     subject_type: str
-    gaokao_score: int
-    province_rank: int
+    gaokao_score: int = Field(ge=0, le=900)
+    province_rank: int = Field(gt=0)
 
     liked_subjects: list[str] = []
     disliked_subjects: list[str] = []
@@ -41,8 +41,8 @@ class ProfileCreateRequest(BaseModel):
     personality_traits: list[str] = []
     career_vision: str = ""
 
-    annual_budget_min: int = 0
-    annual_budget_max: int = 150000
+    annual_budget_min: int = Field(default=0, ge=0)
+    annual_budget_max: int = Field(default=150000, ge=0)
     preferred_cities: list[str] = []
     excluded_cities: list[str] = []
     accept_postgrad: bool = True
@@ -51,6 +51,14 @@ class ProfileCreateRequest(BaseModel):
     priority_factors: list[PriorityFactor] = []
     preference_tree: list[PreferenceTreeItem] = []
     extra_notes: str = ""
+
+    @model_validator(mode="after")
+    def consistent_constraints(self):
+        if self.annual_budget_min > self.annual_budget_max:
+            raise ValueError("预算下限不能高于上限")
+        if set(self.preferred_cities) & set(self.excluded_cities):
+            raise ValueError("偏好城市与排除城市不能重叠")
+        return self
 
 
 @router.post("/profile")

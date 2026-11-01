@@ -5,8 +5,9 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+import json
 from sqlalchemy.orm import Session
-from database.models import AdmissionRecord, User, UserProfile, get_db
+from database.models import AdmissionRecord, User, UserProfile, AgentTask, get_db
 from services.auth_service import get_current_user
 from services.profile_service import get_profile
 from services.llm_service import generate_detail_ui
@@ -68,6 +69,8 @@ class AIReportRequest(BaseModel):
     university_id:   str
     major_name:      str
     university_data: dict
+    task_id: str | None = None
+    profile_version: int | None = None
 
 
 @router.post("/detail/ai-report")
@@ -78,7 +81,17 @@ async def get_ai_report(
     """调用 LLM 生成院校专业深度分析报告（耗时较长）"""
     db_gen = get_db()
     db = next(db_gen)
+    task_profile = None
     try:
+        if body.task_id:
+            task = db.get(AgentTask, body.task_id)
+            if not task or task.user_id != current_user.id or task.profile_uuid != body.uuid:
+                raise HTTPException(status_code=404, detail="任务不存在")
+            profiles = json.loads(task.state_json)["profiles"]
+            version = body.profile_version or len(profiles)
+            if not 1 <= version <= len(profiles):
+                raise HTTPException(status_code=422, detail="画像版本不存在")
+            task_profile = profiles[version - 1]
         owned = (
             db.query(UserProfile)
             .filter(UserProfile.user_id == current_user.id, UserProfile.profile_uuid == body.uuid)
@@ -91,7 +104,7 @@ async def get_ai_report(
             pass
     if not owned:
         raise HTTPException(status_code=404, detail="用户画像不存在")
-    profile = get_profile(body.uuid)
+    profile = task_profile or get_profile(body.uuid)
     if not profile:
         raise HTTPException(status_code=404, detail="用户画像不存在")
     try:

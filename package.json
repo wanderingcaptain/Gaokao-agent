@@ -1,0 +1,10 @@
+{
+  "name": "gaokao-agent-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss --content './frontend/*.html' --output ./frontend/styles.css --minify"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

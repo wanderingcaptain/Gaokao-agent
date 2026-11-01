@@ -1,4 +1,4 @@
-"""路由：推荐流程（规则引擎硬筛 + LLM 筛选），使用 SSE 流式推送"""
+"""路由：工具调用型 Agent 推荐流程，使用 SSE 流式推送。"""
 import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from database.models import RecommendationResult, User, UserProfile, get_db
 from services.auth_service import get_current_user, now_iso
+from services.agent_service import run_recommendation_agent
 from services.profile_service import get_profile
 from services.rule_engine import run_rule_engine
-from services.llm_service import enrich_and_classify
 
 router = APIRouter(prefix="/api/v1", tags=["recommend"])
 
@@ -85,7 +85,7 @@ async def get_preliminary(
 
 
 async def _sse_stream(uuid: str, user_id: int, request: Request):
-    """异步生成器：规则硬筛进度 + LLM 分批筛选结果。"""
+    """异步生成器：把推荐任务交给工具调用型 Agent。"""
     def fmt(event: str, data: dict) -> str:
         return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
@@ -97,74 +97,27 @@ async def _sse_stream(uuid: str, user_id: int, request: Request):
         except HTTPException:
             yield fmt("error", {"message": "用户画像不存在，请重新填写信息"})
             return
-    finally:
-        try:
-            next(db_gen)
-        except StopIteration:
-            pass
-
-    profile = get_profile(uuid)
-    if not profile:
-        yield fmt("error", {"message": "用户画像不存在，请重新填写信息"})
-        return
-
-    if await request.is_disconnected():
-        return
-
-    yield fmt("progress", {"stage": "rule_screening", "message": "正在根据位次、城市、招生类型和偏好生成硬筛候选池..."})
-
-    db_gen = get_db()
-    db = next(db_gen)
-    try:
-        candidates = run_rule_engine(db, profile)
-    finally:
-        try:
-            next(db_gen)
-        except StopIteration:
-            pass
-
-    if not candidates:
-        empty_payload = {"candidates": [], "fallback": False, "message": "未找到符合条件的候选，结果已保存"}
-        save_gen = get_db()
-        save_db = next(save_gen)
-        try:
-            result_id = _save_recommendation_result(save_db, user_id, uuid, profile, empty_payload)
-            empty_payload["result_id"] = result_id
-        finally:
-            try:
-                next(save_gen)
-            except StopIteration:
-                pass
-        yield fmt("result", empty_payload)
-        return
-
-    if await request.is_disconnected():
-        return
-
-    yield fmt("progress", {
-        "stage": "rule_screening",
-        "message": f"硬筛完成，共 {len(candidates)} 个候选，开始交给 AI 分批筛选..."
-    })
-
-    async for event_dict in enrich_and_classify(profile, candidates):
-        if await request.is_disconnected():
-            print(f"[Recommend] 用户已断开连接，停止推荐流 uuid={uuid}", flush=True)
+        profile = get_profile(uuid)
+        if not profile:
+            yield fmt("error", {"message": "用户画像不存在，请重新填写信息"})
             return
-        if event_dict["event"] == "result":
-            save_gen = get_db()
-            save_db = next(save_gen)
-            try:
+
+        async for event_dict in run_recommendation_agent(profile, db):
+            if await request.is_disconnected():
+                print(f"[Recommend] 用户已断开连接，停止 Agent 流 uuid={uuid}", flush=True)
+                return
+            if event_dict["event"] == "result":
                 payload = dict(event_dict["data"])
-                result_id = _save_recommendation_result(save_db, user_id, uuid, profile, payload)
+                result_id = _save_recommendation_result(db, user_id, uuid, profile, payload)
                 payload["result_id"] = result_id
                 payload["message"] = payload.get("message") or "推荐结果已保存到历史记录"
                 event_dict = {"event": "result", "data": payload}
-            finally:
-                try:
-                    next(save_gen)
-                except StopIteration:
-                    pass
-        yield fmt(event_dict["event"], event_dict["data"])
+            yield fmt(event_dict["event"], event_dict["data"])
+    finally:
+        try:
+            db_gen.close()
+        except Exception:
+            pass
 
 
 @router.post("/recommend")

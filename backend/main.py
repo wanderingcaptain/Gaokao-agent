@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from database.models import init_db
-from routers import auth, profile, recommend, detail
+from routers import auth, profile, recommend, detail, agent
 
 load_dotenv()
 
@@ -35,6 +35,7 @@ app.include_router(profile.router)
 app.include_router(recommend.router)
 app.include_router(detail.router)
 app.include_router(auth.router)
+app.include_router(agent.router)
 
 # ── 静态文件（前端）──────────────────────────
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
@@ -54,6 +55,7 @@ if os.path.exists(FRONTEND_DIR):
 @app.on_event("startup")
 async def startup_event():
     init_db()
+    agent.recover_interrupted()
     print("🚀 AI 高考志愿填报系统已启动")
     print(f"   文档地址：http://localhost:{os.getenv('PORT', 8000)}/docs")
 

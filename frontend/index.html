@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI 高考志愿填报助手 — 智能规划，精准匹配</title>
   <meta name="description" content="结合规则引擎与通义千问大模型，为高考考生提供个性化志愿填报方案，智能匹配冲稳保院校。" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css">
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
   <style>
@@ -1393,6 +1393,8 @@ async function submitProfile() {
 
   addStage('画像已保存，正在进入 AI 筛选结果页...');
   sessionStorage.setItem('gaokao_uuid', uuid);
+  sessionStorage.removeItem('gaokao_agent_task');
+  sessionStorage.setItem('gaokao_agent_goal', payload.extra_notes || '根据我的画像生成志愿方案');
   sessionStorage.setItem('gaokao_candidates', JSON.stringify([]));
   sessionStorage.setItem('gaokao_ai_done', 'false');
   sessionStorage.setItem('gaokao_profile_summary', JSON.stringify({
