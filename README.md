@@ -1,5 +1,12 @@
 # 高考志愿规划 Agent
 
+默认旧页面仍运行单 Agent；四角色 v2 已提供独立聊天页面 `/chat`，首页可进入。
+v2 已接入持久后台任务、重启恢复、SSE 进度、审核修正、年度资格规则和跨会话记忆。
+运行方式、迁移、接口及验收范围见 [六项架构完成记录](docs/architecture-v3.md)。
+角色提示词、API 使用方式与明确限制见 [四 Agent 后端原型](docs/multi-agent-v2.md)。
+支持配置 Qwen 或 DeepSeek，默认兼容原 Qwen 配置；未自动切换供应商。
+详见 [重构基础、配置与边界](docs/architecture-foundation.md)。
+
 保留考生画像表单，新增目标输入、追问回答、候选比较、方案修正与版本回看。
 Agent 使用 Qwen 工具调用选择下一步；数据库提供事实，规则引擎计算历史风险，服务端校验方案。
 
@@ -20,9 +27,11 @@ cp .env.example .env
 首次需要导入录取数据。开发用 `python -m scripts.seed_test_data` 会清空并重建录取、一分一段和院校数据，
 只能用于隔离测试数据库；种子数据为模拟数据，不能用于实际填报。
 
-当前采用单进程任务执行器，请使用单个 Uvicorn worker。服务重启时，活动轮次标记失败并解除锁；
+v1 采用单进程任务执行器，请使用单个 Uvicorn worker。v1 服务重启时，活动轮次标记失败并解除锁；
 已保存的画像、对话和方案可继续使用，未完成的模型调用不会自动重放。
 启动时幂等创建 agent_tasks / agent_turns 新表，不修改现有历史表结构。部署前备份数据库。
+v2 默认启动数据库队列工作任务，浏览器断开不取消执行；服务重启后按租约和工具检查点恢复。
+可设置 `AGENT_EMBEDDED_WORKER=false`，另开进程运行 `python -m services.run_worker`。
 
 ## 使用与接口
 
@@ -46,6 +55,9 @@ cp .env.example .env
 推荐必须通过校验；失败反馈给模型修正。工具参数执行服务端 JSON Schema 校验。
 学校、专业和风险数据来自候选池，模型不能覆盖。
 候选比较输出已查询对象的资料引用；历史方案通过版本保留。
+v2 已补齐 16 个工具，包含来源读取、候选详情、历史位次分析、比较、预检和版本化草案；
+完整权限、参数、数据口径与测试说明见 [工具清单](docs/tools.md)。
+v1 历史年份按省份/科类实际最近三年查询，不再固定为 2023–2025。
 
 每轮最多 24 次模型决策、48 次工具执行、5 分钟；单次模型请求超时 60 秒。
 AGENT_MAX_STEPS 和 AGENT_PAGE_SIZE 可配置。超过预算或模型失败时降级为规则备选，
@@ -53,7 +65,7 @@ AGENT_MAX_STEPS 和 AGENT_PAGE_SIZE 可配置。超过预算或模型失败时�
 任务终态区分 completed、waiting、degraded、insufficient_data、failed、cancelled。
 
 当前规则只使用现有数据支持的限制与历史位次。预算、具体选科资格、当年招生章程和计划待核实；
-risk_score 是历史启发式指标，不是录取概率。无联网检索或自动填报。
+risk_score 是历史启发式指标，不是录取概率。v1 无联网检索；v2 可配置 Tavily 搜索。系统不自动填报。
 
 Qwen 工具调用依据：[阿里云 Function Calling 文档](https://www.alibabacloud.com/help/zh/model-studio/qwen-function-calling)。
 真实调用需要你自己的 API Key；不把模拟模型测试当作实际模型联调通过。

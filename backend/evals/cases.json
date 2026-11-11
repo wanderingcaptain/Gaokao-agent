@@ -1,0 +1,5 @@
+[
+  {"id":"interest_exploration","text":"我喜欢数学和动手解决问题，先聊专业方向，不要查学校。","expect":"conversation","authorized":false},
+  {"id":"research_confirmation","text":"请帮我调查广东的计算机专业院校。","expect":"confirmation","authorized":false},
+  {"id":"evidence_backed_plan","text":"确认开始调查计算机，并形成一份有来源的研究草案。","expect":"plan","authorized":true}
+]

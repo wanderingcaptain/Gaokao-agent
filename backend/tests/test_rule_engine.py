@@ -94,6 +94,32 @@ class RuleEngineTest(unittest.TestCase):
 
         self.assertEqual(result, [])
 
+    def test_uses_latest_actual_years_and_honors_target_year(self):
+        for year, rank in [(2022, 40000), (2024, 18000), (2025, 20000), (2026, 22000)]:
+            self.db.add(AdmissionRecord(university_id="10001", university_name="测试大学",
+                major_name="计算机", enrollment_type="普通类", province="广东",
+                subject_type="物理类", year=year, min_rank=rank))
+        self.db.commit()
+        current = run_rule_engine(self.db, self._profile())[0]
+        self.assertEqual([row["year"] for row in current["admission_history"]], [2024, 2025, 2026])
+        self.assertEqual(current["reference_rank"], 20600)
+        profile = self._profile()
+        profile["basic_info"]["target_year"] = 2026
+        earlier = run_rule_engine(self.db, profile)[0]
+        self.assertEqual([row["year"] for row in earlier["admission_history"]], [2022, 2024, 2025])
+
+    def test_sino_foreign_school_flag_and_invalid_user_rank(self):
+        self._add_records("计算机", [20000, 20000, 20000])
+        self.db.get(University, "10001").is_sino_foreign = 1
+        self.db.commit()
+        self.assertEqual(run_rule_engine(self.db, self._profile()), [])
+        profile = self._profile()
+        profile["constraints"]["accept_sino_foreign"] = True
+        self.assertEqual(len(run_rule_engine(self.db, profile)), 1)
+        profile["basic_info"]["province_rank"] = 0
+        with self.assertRaises(ValueError):
+            run_rule_engine(self.db, profile)
+
 
 if __name__ == "__main__":
     unittest.main()

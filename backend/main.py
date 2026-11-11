@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from database.models import init_db
-from routers import auth, profile, recommend, detail, agent
+from routers import auth, profile, recommend, detail, agent, multi_agent
 
 load_dotenv()
 
@@ -36,6 +36,7 @@ app.include_router(recommend.router)
 app.include_router(detail.router)
 app.include_router(auth.router)
 app.include_router(agent.router)
+app.include_router(multi_agent.router)
 
 # ── 静态文件（前端）──────────────────────────
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
@@ -50,14 +51,24 @@ if os.path.exists(FRONTEND_DIR):
     async def read_result():
         return FileResponse(os.path.join(FRONTEND_DIR, "result.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
+    @app.get("/chat")
+    async def read_chat():
+        return FileResponse(os.path.join(FRONTEND_DIR, "chat.html"), headers={"Cache-Control": "no-cache"})
+
 
 # ── 启动时建表 ────────────────────────────────
 @app.on_event("startup")
 async def startup_event():
     init_db()
     agent.recover_interrupted()
+    multi_agent.ensure_worker()
     print("🚀 AI 高考志愿填报系统已启动")
     print(f"   文档地址：http://localhost:{os.getenv('PORT', 8000)}/docs")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await multi_agent.shutdown_worker()
 
 
 @app.get("/api/health")

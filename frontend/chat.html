@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>志愿研究室 · 对话规划</title>
+  <meta name="description" content="从兴趣出发，研究专业、比较院校，保留每一次志愿方案与资料来源。">
+  <link rel="stylesheet" href="/static/chat.css?v=e9c5137c2ad1">
+  <script src="/static/chat.js?v=99a0d9c1b6f6" defer></script>
+</head>
+<body>
+<header><a class="brand" href="/chat"><span class="mark">研</span> 志愿研究室</a><span class="subtle">从兴趣出发，让选择有依据</span><a href="/">画像表单</a><button id="logout" class="quiet" hidden>退出登录</button></header>
+<div id="notice" role="status" aria-live="polite" hidden></div>
+<section id="auth" class="auth-card" hidden>
+  <p class="eyebrow">YOUR NEXT CHAPTER</p><h1>一起找到适合你的方向</h1>
+  <p>聊兴趣、查专业、比较学校。研究进度和每一版方案都会为你保留。</p>
+  <form id="auth-form"><label>用户名<input id="username" autocomplete="username" required minlength="3" maxlength="20"></label>
+  <label>密码<input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="32"></label>
+  <div class="actions"><button type="submit">登录</button><button type="button" id="register" class="secondary">注册并开始</button></div></form>
+</section>
+<main id="workspace" hidden>
+  <aside class="sidebar"><div class="section-top"><h2>我的研究</h2><button id="new-session" class="quiet">＋ 新对话</button></div><nav id="sessions" aria-label="研究会话"></nav>
+  <div class="side-note">每个结论都值得追问。<br>查看来源，保留取舍，慢慢作出自己的选择。</div></aside>
+  <section class="conversation"><div class="conversation-head"><div><p class="eyebrow">EXPLORE YOUR POSSIBILITIES</p><h1>聊聊你的下一站</h1></div><span class="badge" id="task-status">准备就绪</span></div>
+  <div id="messages" role="log" aria-live="polite"></div>
+  <div id="progress" aria-live="polite" hidden><span class="pulse"></span><span id="progress-text">正在研究</span><button id="cancel" class="quiet">停止研究</button></div>
+  <div id="confirmations"></div>
+  <form id="message-form"><label class="sr-only" for="message">你想了解什么</label><textarea id="message" rows="3" maxlength="4000" placeholder="例如：我喜欢数学和动手解决问题，想了解计算机与电子信息的区别……" required></textarea><div class="compose-bottom"><span>先聊方向，也可以直接比较已有候选</span><button id="send" type="submit">发送 ↗</button></div></form>
+  </section>
+  <aside class="inspector">
+    <section><div class="section-top"><h2>研究成果</h2><span id="artifact-count" class="subtle">0 份</span></div><div id="artifacts"><p class="empty">研究报告与方案将在这里出现。</p></div></section>
+    <details open><summary>我的条件与偏好</summary><p class="subtle">由你明确保存的条件会用于后续会话。执行中的任务结束后可修改。</p>
+      <form id="profile-form" class="compact"><div class="grid2"><label>招生省份<input name="province" value="广东" required></label><label>目标年份<input name="target_year" type="number" min="2000" max="2100" required></label>
+      <label>科类<select name="subject_type"><option>物理类</option><option>历史类</option></select></label><label>省位次<input name="province_rank" type="number" min="1" max="10000000" required></label></div>
+      <label>已选科目（逗号分隔）<input name="selected_subjects" placeholder="物理，化学，生物"></label><label>排除城市（逗号分隔）<input name="excluded_cities" placeholder="未排除"></label>
+      <label>每年最高预算（元）<input name="annual_budget_max" type="number" min="0" placeholder="暂不确定"></label><label class="check"><input name="accept_sino_foreign" type="checkbox">接受中外合作</label>
+      <button type="submit" class="secondary">保存这些条件</button></form><div id="memories"></div>
+    </details>
+    <details><summary>本轮执行记录</summary><div id="metrics" class="subtle">发起研究后可查看耗时和调用记录。</div></details>
+  </aside>
+</main>
+<dialog id="artifact-dialog"><div class="section-top"><h2 id="artifact-title">研究详情</h2><button id="close-dialog" class="quiet" aria-label="关闭详情">关闭 ×</button></div><div id="artifact-content"></div></dialog>
+<footer>历史数据用于研究参考。资格、招生计划和费用以适用年度的官方信息为准。</footer>
+</body></html>

@@ -170,9 +170,122 @@ class AgentTurn(Base):
     __table_args__ = (UniqueConstraint("task_id", "request_id", name="uq_agent_request"),)
 
 
+class MultiAgentSession(Base):
+    __tablename__ = "multi_agent_sessions"
+    id = Column(Text, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    state_json = Column(Text, nullable=False)
+    active_request_id = Column(Text, nullable=True)
+
+
+class SchemaMigration(Base):
+    __tablename__ = 'schema_migrations'
+    version = Column(Integer, primary_key=True)
+    applied_at = Column(Float, nullable=False)
+
+
+class AgentRun(Base):
+    __tablename__ = 'agent_runs_v2'
+    id = Column(Text, primary_key=True)
+    session_id = Column(Text, nullable=False, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    request_id = Column(Text, nullable=False)
+    input_json = Column(Text, nullable=False)
+    status = Column(Text, nullable=False, index=True, default='queued')
+    checkpoint_json = Column(Text, nullable=False, default='{}')
+    result_json = Column(Text)
+    owner = Column(Text)
+    lease_until = Column(Float, nullable=False, default=0)
+    attempts = Column(Integer, nullable=False, default=0)
+    cancel_requested = Column(Integer, nullable=False, default=0)
+    created_at = Column(Float, nullable=False)
+    updated_at = Column(Float, nullable=False)
+    __table_args__ = (UniqueConstraint('session_id', 'request_id', name='uq_run_request_v2'),)
+
+
+class RunEvent(Base):
+    __tablename__ = 'run_events_v2'
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    run_id = Column(Text, nullable=False, index=True)
+    kind = Column(Text, nullable=False)
+    data_json = Column(Text, nullable=False)
+    created_at = Column(Float, nullable=False)
+
+
+class RunStep(Base):
+    __tablename__ = 'run_steps_v2'
+    run_id = Column(Text, primary_key=True)
+    step_id = Column(Text, primary_key=True)
+    role = Column(Text, nullable=False)
+    kind = Column(Text, nullable=False)
+    name = Column(Text, nullable=False)
+    ok = Column(Integer, nullable=False)
+    duration_ms = Column(Float, nullable=False, default=0)
+    usage_json = Column(Text, nullable=False, default='{}')
+    error_code = Column(Text)
+
+
+class SubtaskRecord(Base):
+    __tablename__ = 'agent_subtasks_v2'
+    session_id = Column(Text, primary_key=True)
+    subtask_id = Column(Text, primary_key=True)
+    run_id = Column(Text, nullable=False, index=True)
+    status = Column(Text, nullable=False)
+    body_json = Column(Text, nullable=False)
+
+
+class ArtifactRecord(Base):
+    __tablename__ = 'agent_artifacts_v2'
+    session_id = Column(Text, primary_key=True)
+    artifact_id = Column(Text, primary_key=True)
+    run_id = Column(Text, nullable=False, index=True)
+    kind = Column(Text, nullable=False)
+    profile_version = Column(Integer, nullable=False)
+    body_json = Column(Text, nullable=False)
+
+
+class SourceRecord(Base):
+    __tablename__ = 'agent_sources_v2'
+    session_id = Column(Text, primary_key=True)
+    source_id = Column(Text, primary_key=True)
+    body_json = Column(Text, nullable=False)
+    versions_json = Column(Text, nullable=False, default='[]')
+
+
+class UserKnowledge(Base):
+    __tablename__ = 'user_knowledge_v2'
+    user_id = Column(Integer, primary_key=True)
+    revision = Column(Integer, nullable=False, default=1)
+    profile_json = Column(Text, nullable=False, default='{}')
+
+
+class UserMemory(Base):
+    __tablename__ = 'user_memories_v2'
+    user_id = Column(Integer, primary_key=True)
+    memory_id = Column(Text, primary_key=True)
+    body_json = Column(Text, nullable=False)
+    revision = Column(Integer, nullable=False, default=1)
+    deleted = Column(Integer, nullable=False, default=0)
+
+
+class AdmissionPolicy(Base):
+    __tablename__ = 'admission_policies_v2'
+    id = Column(Text, primary_key=True)
+    university_id = Column(Text, nullable=False, index=True)
+    major_name = Column(Text, nullable=False)
+    enrollment_type = Column(Text, nullable=False)
+    province = Column(Text, nullable=False)
+    subject_type = Column(Text, nullable=False)
+    target_year = Column(Integer, nullable=False, index=True)
+    body_json = Column(Text, nullable=False)
+
+
 def init_db():
     """建表（幂等操作，已存在则跳过）"""
     Base.metadata.create_all(bind=engine)
+    from services.run_store import migrate
+    with SessionLocal() as db:
+        migrate(db)
     print("✅ 数据库表结构初始化完成")
 
 

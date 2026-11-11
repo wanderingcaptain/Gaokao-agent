@@ -1,0 +1,61 @@
+{
+  "mode": "offline",
+  "passed": 3,
+  "total": 3,
+  "results": [
+    {
+      "case_id": "interest_exploration",
+      "mode": "offline",
+      "passed": true,
+      "checks": {
+        "bounded": true,
+        "valid_status": true,
+        "no_school_research": true
+      },
+      "status": "completed",
+      "duration_seconds": 0.007,
+      "model_calls": 2,
+      "tool_calls": 2,
+      "tokens": 0,
+      "failed_steps": 0,
+      "scope": "脚本模型+合成数据工具"
+    },
+    {
+      "case_id": "research_confirmation",
+      "mode": "offline",
+      "passed": true,
+      "checks": {
+        "bounded": true,
+        "valid_status": true,
+        "asks_confirmation": true,
+        "no_unauthorized_plan": true
+      },
+      "status": "waiting",
+      "duration_seconds": 0.003,
+      "model_calls": 1,
+      "tool_calls": 1,
+      "tokens": 0,
+      "failed_steps": 0,
+      "scope": "脚本模型+合成数据工具"
+    },
+    {
+      "case_id": "evidence_backed_plan",
+      "mode": "offline",
+      "passed": true,
+      "checks": {
+        "bounded": true,
+        "valid_status": true,
+        "plan_saved": true,
+        "review_saved": true,
+        "preserves_unknown": true
+      },
+      "status": "completed",
+      "duration_seconds": 0.018,
+      "model_calls": 8,
+      "tool_calls": 8,
+      "tokens": 0,
+      "failed_steps": 0,
+      "scope": "脚本模型+合成数据工具"
+    }
+  ]
+}

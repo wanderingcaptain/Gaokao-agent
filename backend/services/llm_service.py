@@ -1,18 +1,13 @@
-"""LLM 相关能力：详情报告生成，以及 Agent 使用的结果处理工具。"""
+"""详情报告生成；方案处理的旧导入名称保留用于兼容。"""
 from __future__ import annotations
 
 import json
-import os
 import re
-from collections import defaultdict
 
 from dotenv import load_dotenv
 
 
 load_dotenv()
-
-_MAX_FINAL_CANDIDATES = int(os.getenv("LLM_FINAL_CANDIDATES", "45"))
-
 
 def _preference_tree_summary(profile: dict) -> str:
     items = profile.get("preference_tree", [])
@@ -91,102 +86,9 @@ def _safe_parse_json(text: str) -> dict:
         return json.loads(repaired)
 
 
-def _merge_llm_selection(candidates_by_id: dict[int, dict], rows: list[dict]) -> list[dict]:
-    selected = []
-    seen = set()
-    for row in rows:
-        try:
-            candidate_id = int(row.get("candidate_id"))
-        except (TypeError, ValueError):
-            continue
-        if candidate_id in seen or candidate_id not in candidates_by_id:
-            continue
-        original = candidates_by_id[candidate_id]
-        merged = dict(original)
-        merged["fit_score"] = max(0, min(100, int(row["fit_score"])))
-        merged["reason"] = row.get("reason") or original.get("reason") or original.get("tier_reason", "")
-        merged["warnings"] = row.get("warnings") or original.get("warnings") or []
-        merged["strategy_note"] = row.get("strategy_note") or original.get("strategy_note") or ""
-        merged["enriched_data"] = row.get("enriched_data") or original.get("enriched_data") or {}
-        selected.append(merged)
-        seen.add(candidate_id)
-    return selected
-
-
-def _fallback_candidates(candidates: list[dict], limit: int = _MAX_FINAL_CANDIDATES) -> list[dict]:
-    targets = {"冲": 0.15, "稳": 0.60, "保": 0.25}
-    grouped = defaultdict(list)
-    for item in candidates:
-        grouped[item.get("tier", "稳")].append(item)
-
-    result = []
-    for tier in ["冲", "稳", "保"]:
-        tier_limit = max(1, round(limit * targets[tier]))
-        ranked = sorted(
-            grouped[tier],
-            key=lambda x: (
-                abs((x.get("risk_ratio") or 1) - 1),
-                -x.get("risk_score", 0),
-            ),
-        )
-        result.extend(ranked[:tier_limit])
-
-    if len(result) < min(limit, len(candidates)):
-        selected_ids = {c["candidate_id"] for c in result}
-        extras = [c for c in candidates if c["candidate_id"] not in selected_ids]
-        extras.sort(key=lambda x: ({"稳": 0, "保": 1, "冲": 2}.get(x.get("tier"), 9), abs((x.get("risk_ratio") or 1) - 1)))
-        result.extend(extras[:limit - len(result)])
-
-    for item in result[:limit]:
-        item["fit_score"] = item.get("fit_score") or item.get("risk_score") or 70
-        item["reason"] = item.get("reason") or item.get("tier_reason") or "根据历史录取位次与画像偏好生成的规则备选结果"
-        item["warnings"] = item.get("warnings") or ["AI筛选暂不可用，建议人工复核专业与招生章程"]
-        item["strategy_note"] = item.get("strategy_note") or "当前为规则备选结果，可作为临时参考"
-        item.setdefault("enriched_data", {})
-    return result[:limit]
-
-
-def _finalize_shortlist(shortlist: list[dict], limit: int = _MAX_FINAL_CANDIDATES) -> list[dict]:
-    """后端汇总排序：保留批筛生成的解释字段，不再二次调用 LLM。"""
-    if not shortlist:
-        return []
-
-    targets = {"冲": 0.15, "稳": 0.60, "保": 0.25}
-    grouped = defaultdict(list)
-    for item in shortlist:
-        grouped[item.get("tier", "稳")].append(item)
-
-    for tier_items in grouped.values():
-        tier_items.sort(key=lambda x: (
-            -int(x.get("fit_score") or 0),
-            -int(x.get("risk_score") or 0),
-            abs((x.get("risk_ratio") or 1) - 1),
-        ))
-
-    selected = []
-    selected_ids = set()
-    for tier in ["冲", "稳", "保"]:
-        tier_limit = max(1, round(limit * targets[tier]))
-        for item in grouped[tier][:tier_limit]:
-            selected.append(item)
-            selected_ids.add(item["candidate_id"])
-
-    if len(selected) < min(limit, len(shortlist)):
-        extras = [item for item in shortlist if item["candidate_id"] not in selected_ids]
-        extras.sort(key=lambda x: (
-            -int(x.get("fit_score") or 0),
-            {"稳": 0, "保": 1, "冲": 2}.get(x.get("tier"), 9),
-            abs((x.get("risk_ratio") or 1) - 1),
-        ))
-        selected.extend(extras[:limit - len(selected)])
-
-    selected = selected[:limit]
-    selected.sort(key=lambda x: (
-        {"冲": 0, "稳": 1, "保": 2}.get(x.get("tier"), 9),
-        -int(x.get("fit_score") or 0),
-        abs((x.get("risk_ratio") or 1) - 1),
-    ))
-    return selected
+from tools.recommendation import (
+    _MAX_FINAL_CANDIDATES, _merge_llm_selection, _fallback_candidates, _finalize_shortlist,
+)
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -261,44 +163,36 @@ async def generate_detail_ui(profile: dict, university_data: dict) -> dict:
     返回 {"html": "...", "chartConfig": {...}}
     失败时抛出异常
     """
-    from openai import AsyncOpenAI
+    from providers.client import ModelSettings, create_client, request_options
 
-    api_key = os.environ.get("QWEN_API_KEY")
-    base_url = os.environ.get("QWEN_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    model_name = os.environ.get("QWEN_MODEL", "qwen-plus")
-
-    client = AsyncOpenAI(
-        api_key=api_key or "dummy",
-        base_url=base_url,
-    )
-
-    max_retries = 2
-    for attempt in range(max_retries):
-        try:
-            response_stream = await client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {"role": "system", "content": _DETAIL_SYSTEM},
-                    {"role": "user", "content": _build_detail_user_prompt(profile, university_data)},
-                ],
-                temperature=0.3,
-                max_tokens=4096,
-                stream=True,
-                extra_body={"enable_search": False},
-            )
-
-            raw_content = ""
-            async for chunk in response_stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        raw_content += delta
-
-            result = _safe_parse_json(raw_content)
-            if "html" in result and "chartConfig" in result:
-                return result
-        except Exception as e:
-            if attempt == max_retries - 1:
-                raise ValueError(f"大模型报错或返回无效 JSON ({type(e).__name__}): {str(e)[:200]}")
-
-    raise ValueError("大模型多次返回无效数据")
+    settings = ModelSettings.from_env()
+    client = create_client(settings)
+    try:
+        for attempt in range(2):
+            response_stream = None
+            try:
+                response_stream = await client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": _DETAIL_SYSTEM},
+                        {"role": "user", "content": _build_detail_user_prompt(profile, university_data)},
+                    ],
+                    stream=True,
+                    **request_options(settings, temperature=0.3, max_tokens=4096),
+                )
+                raw_content = ""
+                async for chunk in response_stream:
+                    if chunk.choices:
+                        raw_content += chunk.choices[0].delta.content or ""
+                result = _safe_parse_json(raw_content)
+                if "html" in result and "chartConfig" in result:
+                    return result
+            except Exception as exc:
+                if attempt == 1:
+                    # 不把供应商响应或凭据带入用户可见错误。
+                    raise ValueError(f"详情生成失败 ({type(exc).__name__})") from exc
+            finally:
+                if response_stream is not None:
+                    await response_stream.close()
+        raise ValueError("大模型多次返回无效数据")
+    finally:
+        await client.close()

@@ -156,6 +156,16 @@ class AgentServiceTest(unittest.TestCase):
         self.assertFalse(result["valid"])
         self.assertIn("硬筛候选池之外", " ".join(result["errors"]))
 
+    def test_validation_rejects_mutated_facts_and_stale_comparison_ids(self):
+        self.state.final_candidates = [dict(item, fit_score=80, reason="匹配", warnings=[],
+            strategy_note="参考") for item in self.state.candidates]
+        self.state.final_candidates[0]["risk_score"] = 100
+        self.assertFalse(_validate_state(self.state)["valid"])
+        self.state.viewed_ids.add(999)
+        result = asyncio.run(_execute_tool("answer_comparison", {
+            "candidate_ids": [999], "summary": "过期候选"}, self.state))
+        self.assertFalse(result["ok"])
+
     def test_validation_accepts_complete_result_from_hard_screen(self):
         self.state.final_candidates = []
         for candidate_id, tier in [(1, "冲"), (2, "稳"), (3, "保")]:

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent 执行记录检查器</title>
+<style>
+  :root { color-scheme: light; font: 15px/1.55 system-ui, sans-serif; color: #18263a; background: #f4f6fa; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { max-width: 1220px; margin: auto; padding: 32px clamp(14px, 4vw, 48px) 48px; }
+  header { margin-bottom: 24px; }
+  h1, h2, h3, p { margin: 0 0 10px; }
+  h1 { font-size: clamp(25px, 4vw, 36px); }
+  h2 { font-size: 19px; }
+  h3 { font-size: 16px; }
+  .muted { color: #4f5d72; }
+  .eyebrow { color: #2456a1; font-size: 12px; font-weight: 750; letter-spacing: .08em; }
+  .panel { background: white; border: 1px solid #d8e0eb; border-radius: 12px; margin-bottom: 20px; padding: 18px; }
+  .row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .spread { justify-content: space-between; }
+  form { margin: 4px 0 14px; }
+  label { display: grid; gap: 4px; }
+  label.grow { flex: 1 1 240px; }
+  input, select, button { font: inherit; }
+  input, select, button { min-height: 38px; border: 1px solid #a6b5ca; border-radius: 6px; padding: 5px 10px; }
+  input, select, button { background: white; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  button.primary { color: white; background: #2456a1; border-color: #2456a1; }
+  form button { align-self: end; }
+  button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #2456a1; outline-offset: 2px; }
+  .scroll { overflow: auto; max-height: 430px; }
+  table { width: 100%; border-collapse: collapse; white-space: nowrap; text-align: left; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #e5eaf2; }
+  th { color: #4f5d72; font-weight: 650; font-size: 13px; background: white; position: sticky; top: 0; }
+  tr.selected { background: #eaf2ff; }
+  .link { border: 0; background: transparent; min-height: 32px; color: #184d9b; padding: 2px 0; text-decoration: underline; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 5px; color: #3e4c63; background: #eaf0f7; }
+  .success { background: #e3f5eb; color: #17643b; }
+  .warn { background: #fff1d6; color: #805000; }
+  .bad { background: #fde9e9; color: #962c2c; }
+  .pagination { margin-top: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 8px; margin: 14px 0 20px; }
+  .card { background: #f0f4fa; border-radius: 8px; padding: 10px 12px; display: grid; }
+  .card strong { font-size: 21px; font-variant-numeric: tabular-nums; }
+  .chart { padding: 0; list-style: none; margin: 10px 0 18px; }
+  .chart li { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(80px, 1fr) 75px; align-items: center; gap: 10px; margin: 7px 0; }
+  .chart span { overflow-wrap: anywhere; }
+  .bar { height: 10px; background: #e9eef7; border-radius: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: #336dc2; }
+  .bar .tool { background: #138171; }
+  .bar .failed { background: #bd3e44; }
+  .seconds { text-align: right; font-variant-numeric: tabular-nums; }
+  .timeline { padding-left: 24px; margin: 8px 0 16px; }
+  .timeline li { padding: 4px 0; }
+  details { border-top: 1px solid #e5eaf2; margin-top: 12px; padding-top: 10px; }
+  summary { cursor: pointer; font-weight: 650; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; background: #f0f4fa; border-radius: 6px; max-height: 440px; overflow: auto; }
+  code { overflow-wrap: anywhere; }
+  #notice { color: #962c2c; }
+  @media (max-width: 560px) {
+    .panel { padding: 12px; }
+    .chart li { grid-template-columns: minmax(115px, 1.1fr) minmax(38px, 1fr) 64px; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">本地开发工具 / SQLite 只读</p>
+    <h1>Agent 执行记录检查器</h1>
+    <p class="muted">从历史轮次追踪模型调用、工具执行和超时重试。</p>
+  </header>
+  <section class="panel" aria-labelledby="list-title">
+    <div class="row spread"><h2 id="list-title">历史轮次</h2><button id="refresh" type="button">刷新数据</button></div>
+    <form id="filters" class="row">
+      <label>状态<select id="status"><option value="">全部状态</option></select></label>
+      <label class="grow">轮次或会话 ID 前缀<input id="query" type="search" maxlength="256" placeholder="例如 328ad609"></label>
+      <button class="primary" type="submit">筛选</button>
+    </form>
+    <p id="notice" role="alert" hidden></p>
+    <div class="scroll"><table>
+      <thead><tr><th>轮次 ID</th><th>开始时间</th><th>状态</th><th>经过时间</th><th>尝试</th><th>模型 / 工具</th><th>错误</th></tr></thead>
+      <tbody id="runs"></tbody>
+    </table></div>
+    <div class="row spread pagination">
+      <span class="muted" id="page-label" role="status">正在读取数据库…</span>
+      <div class="row"><button id="previous" disabled>上一页</button><button id="next" disabled>下一页</button></div>
+    </div>
+  </section>
+  <section class="panel" id="detail" aria-label="轮次详情" aria-live="polite" hidden></section>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  const statuses = {
+    queued: ['排队', 'warn'], running: ['执行中', 'warn'], waiting: ['待确认', 'warn'],
+    completed: ['完成', 'success'], degraded: ['降级完成', 'warn'], failed: ['失败', 'bad'],
+    cancelled: ['已取消', ''], insufficient_data: ['资料不足', 'warn'], cancelling: ['取消中', 'warn']
+  };
+  const roles = { coordinator: '主协调', major_research: '专业研究', admissions: '招生核实', planner: '志愿规划' };
+  const eventNames = { queued: '入队', running: '开始执行', progress: '步骤完成', cancelling: '请求取消', result: '轮次结束' };
+  const reasons = { provider_retry: '模型服务重试', worker_shutdown: '工作进程关闭' };
+  const active = new Set(['queued', 'running', 'cancelling']);
+  const dateFormat = new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  });
+  let page = 1, selected = null, listVersion = 0, detailVersion = 0;
+  let filters = { status: '', q: '' };
+
+  function el(tag, value, classes) {
+    const node = document.createElement(tag);
+    if (value != null) node.textContent = value;
+    if (classes) node.className = classes;
+    return node;
+  }
+
+  const label = status => statuses[status]?.[0] || status;
+  const timestamp = seconds => seconds > 0 ? dateFormat.format(new Date(seconds * 1000)) : '—';
+  const seconds = ms => ms > 0 && ms < 10 ? '<0.01 秒' : (ms / 1000).toFixed(2) + ' 秒';
+  const elapsed = (run, now) => seconds(Math.max(0, (active.has(run.status) ? now - run.created_at : run.updated_at - run.created_at) * 1000));
+  const value = number => number ?? '—';
+
+  function badge(status) {
+    return el('span', label(status), 'badge ' + (statuses[status]?.[1] || ''));
+  }
+
+  async function get(path) {
+    const response = await fetch(path, { cache: 'no-store' });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || '读取失败');
+    return data;
+  }
+
+  function messageRow(text) {
+    const row = el('tr'), cell = el('td', text, 'muted');
+    cell.colSpan = 7;
+    row.append(cell);
+    return row;
+  }
+
+  async function loadList(targetPage) {
+    const version = ++listVersion;
+    byId('notice').hidden = true;
+    byId('previous').disabled = byId('next').disabled = true;
+    try {
+      const params = new URLSearchParams({ ...filters, page: targetPage });
+      const data = await get('/api/runs?' + params);
+      if (version !== listVersion) return;
+      page = data.page;
+      const pages = Math.max(1, Math.ceil(data.total / data.page_size));
+      byId('page-label').textContent = '共 ' + data.total + ' 轮 · 第 ' + page + ' / ' + pages + ' 页';
+      byId('previous').disabled = page <= 1;
+      byId('next').disabled = page >= pages;
+      const statusInput = byId('status'), choice = statusInput.value;
+      statusInput.replaceChildren(new Option('全部状态', ''), ...data.statuses.map(s => new Option(label(s), s)));
+      statusInput.value = choice;
+      const selectedRun = data.runs.find(run => run.id === selected) || data.runs[0];
+      const tbody = byId('runs');
+      tbody.replaceChildren();
+      for (const run of data.runs) {
+        const tr = el('tr'), idCell = el('td'), statusCell = el('td');
+        const button = el('button', run.id.slice(0, 12), 'link');
+        button.type = 'button';
+        button.title = run.id;
+        button.setAttribute('aria-label', '查看轮次 ' + run.id);
+        button.addEventListener('click', () => selectRun(run.id, true));
+        tr.dataset.run = run.id;
+        idCell.append(button);
+        statusCell.append(badge(run.status));
+        tr.append(idCell, el('td', timestamp(run.created_at)), statusCell, el('td', elapsed(run, data.as_of)),
+          el('td', run.attempts), el('td', value(run.model_calls) + ' / ' + value(run.tool_calls)), el('td', value(run.failed_steps)));
+        tbody.append(tr);
+      }
+      if (selectedRun) selectRun(selectedRun.id);
+      else {
+        selected = null;
+        detailVersion++;
+        byId('detail').hidden = true;
+        tbody.append(messageRow('没有匹配的执行记录。'));
+      }
+    } catch (error) {
+      if (version !== listVersion) return;
+      byId('notice').textContent = error.message;
+      byId('notice').hidden = false;
+    }
+  }
+
+  async function selectRun(id, reveal = false) {
+    const version = ++detailVersion;
+    selected = id;
+    const detail = byId('detail');
+    for (const row of byId('runs').rows) {
+      const isSelected = row.dataset.run === id;
+      row.classList.toggle('selected', isSelected);
+      row.querySelector('button')?.setAttribute('aria-pressed', isSelected);
+    }
+    detail.hidden = false;
+    detail.replaceChildren(el('p', '正在读取轮次详情…', 'muted'));
+    try {
+      const data = await get('/api/runs/' + encodeURIComponent(id));
+      if (version === detailVersion) {
+        renderDetail(detail, data);
+        if (reveal) detail.scrollIntoView({ block: 'start' });
+      }
+    } catch (error) {
+      if (version === detailVersion) detail.replaceChildren(el('p', error.message, 'bad'));
+    }
+  }
+
+  function renderDetail(target, { run, steps, events, as_of: now }) {
+    const heading = el('div', null, 'row spread');
+    heading.append(el('h2', '轮次详情'), badge(run.status));
+    const metrics = el('div', null, 'cards');
+    const model = steps.filter(step => step.kind === 'model');
+    const tools = steps.filter(step => step.kind === 'tool');
+    const actions = new Set(tools.map(step => /^tool_(\d+)_\d+$/.exec(step.step_id)?.[1]).filter(Boolean));
+    const tokenValues = model.map(step => step.usage?.total_tokens).filter(Number.isFinite);
+    const totalTokens = tokenValues.length ? tokenValues.reduce((a, b) => a + b, 0) : '—';
+    const modelMs = model.reduce((sum, step) => sum + step.duration_ms, 0);
+    const modelNames = [...new Set(model.map(step => step.name))];
+    for (const [name, metric] of [
+      ['经过时间', elapsed(run, now)], ['模型请求（含失败）', model.length], ['模型累计耗时', seconds(modelMs)],
+      ['有工具步骤的模型轮次', actions.size], ['工具步骤', tools.length], ['已报告 Token', totalTokens]
+    ]) {
+      const card = el('div', null, 'card');
+      card.append(el('span', name, 'muted'), el('strong', metric));
+      metrics.append(card);
+    }
+    target.replaceChildren(heading, el('code', run.id),
+      el('p', '开始 ' + timestamp(run.created_at) + ' · 更新 ' + timestamp(run.updated_at) + ' · 尝试 ' + run.attempts + ' 次', 'muted'),
+      el('p', '模型 ' + (modelNames.join(' / ') || '暂无记录'), 'muted'), metrics, el('h3', '逐步耗时'));
+    if (steps.length) {
+      const longest = Math.max(1, ...steps.map(step => step.duration_ms));
+      const chart = el('ol', null, 'chart');
+      for (const step of steps) {
+        const li = el('li');
+        const title = el('span', step.step_id + ' · ' + (roles[step.role] || step.role) +
+          (step.kind === 'model' ? '' : ' · ' + step.name) + (step.error_code ? ' · ' + step.error_code : ''),
+          step.ok ? '' : 'bad');
+        const bar = el('span', null, 'bar'), fill = el('i', null, step.ok ? step.kind : 'failed');
+        bar.setAttribute('aria-hidden', 'true');
+        fill.style.width = (100 * step.duration_ms / longest) + '%';
+        bar.append(fill);
+        li.append(title, bar, el('span', seconds(step.duration_ms), 'seconds'));
+        chart.append(li);
+      }
+      target.append(chart);
+    } else target.append(el('p', '这轮暂无逐步记录。', 'muted'));
+
+    target.append(el('h3', '事件时间线'));
+    if (events.length) {
+      const timeline = el('ol', null, 'timeline');
+      for (const event of events) {
+        const data = event.data || {};
+        const description = data.reason ? (reasons[data.reason] || data.reason)
+          : data.name ? (roles[data.role] || data.role || '执行') + ' · ' + data.name + (data.ok === false ? ' · 失败' : '')
+          : data.status ? label(data.status) : '';
+        timeline.append(el('li', '+' + seconds(Math.max(0, (event.created_at - run.created_at) * 1000)) +
+          ' · ' + (eventNames[event.kind] || event.kind) + (description ? ' · ' + description : '')));
+      }
+      target.append(timeline);
+    } else target.append(el('p', '这轮暂无事件。', 'muted'));
+
+    const { input, result, checkpoint, ...metadata } = run;
+    for (const [name, data] of [
+      ['轮次元数据', metadata], ['输入与结果 JSON', { input, result }],
+      ['步骤与用量 JSON', steps], ['事件 JSON', events], ['执行检查点 JSON', checkpoint]
+    ]) {
+      const disclosure = el('details');
+      disclosure.append(el('summary', name), el('pre', JSON.stringify(data, null, 2)));
+      target.append(disclosure);
+    }
+  }
+
+  byId('filters').addEventListener('submit', event => {
+    event.preventDefault();
+    filters = { status: byId('status').value, q: byId('query').value.trim() };
+    loadList(1);
+  });
+  byId('refresh').addEventListener('click', () => loadList(page));
+  byId('previous').addEventListener('click', () => loadList(page - 1));
+  byId('next').addEventListener('click', () => loadList(page + 1));
+  loadList(1);
+</script>
+</body>
+</html>
