@@ -83,10 +83,20 @@ def public_run(run):
 
 def record_outcome(db, run, session, result):
     cursor = json.loads(run.checkpoint_json)
-    if not cursor.get('conversation_saved'):
+    # Reoffer the same scoped confirmation if the provider failed before any
+    # successful model call. No research work was performed in that case.
+    confirmations = {}
+    if result.get('provider_error') and not any(
+            step['kind'] == 'model' and step['ok'] for step in cursor.get('metrics', [])):
+        confirmations = cursor.get('research_confirmations', {})
+    if confirmations or not cursor.get('conversation_saved'):
         state = load_state(db, session)
-        state['conversation'].extend([{'role': 'user', 'content': json.loads(run.input_json).get('text', '')},
-                                      {'role': 'assistant', 'content': result['text']}])
+        for cid, confirmation in confirmations.items():
+            if confirmation['profile_version'] == state['profile_version']:
+                state['pending'].setdefault(cid, {**confirmation, 'retry_after_provider_error': True})
+        if not cursor.get('conversation_saved'):
+            state['conversation'].extend([{'role': 'user', 'content': json.loads(run.input_json).get('text', '')},
+                                          {'role': 'assistant', 'content': result['text']}])
         save_state(db, session, state, run.id)
         cursor.update(conversation_saved=True, phase='done', reply=result)
         run.checkpoint_json = encode(cursor)

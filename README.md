@@ -93,6 +93,8 @@ npm run test:browser
 
 已有 Chrome 时可用 `GAOKAO_TEST_BROWSER=chrome npm run test:browser`。浏览器测试使用隔离数据库和脚本模型，覆盖注册登录、
 画像、录取查询及对照、断连重试、确认、报告下载、记忆管理、取消、归档、用户隔离和移动端。
+配置真实模型后，运行 `npm run test:browser -- --live` 可在隔离库中导入历史快照，并验证真实调查确认、方案来源和下载。
+该命令会调用配置的模型网关。
 本机真实数据和供应商探测结果见 [工作台验收记录](docs/workbench-acceptance.md)。
 
 页面样式已编译到 frontend/styles.css，不依赖 Tailwind 在线 CDN。

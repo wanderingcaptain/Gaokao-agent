@@ -10,8 +10,10 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 from types import SimpleNamespace as NS
+import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from openai import APIConnectionError, RateLimitError
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from database.models import (Base, MultiAgentSession, AgentRun, RunStep, ArtifactRecord,
@@ -201,23 +203,68 @@ asyncio.run(CrashingWorker(SessionLocal, runtime).run_once())
             self.assertEqual(len(list(db.scalars(select(RunStep).where(RunStep.name == 'propose_memory')))), 1)
 
     async def test_transient_provider_errors_retry_with_persisted_usage_and_finite_budget(self):
-        from openai import APIConnectionError
-        import httpx
-        self.create_run()
+        state = self.create_run()
+        state['conversation'] = [{'role': 'user', 'content': '此前说过：想研究北京邮电大学'},
+                                 {'role': 'assistant', 'content': '可以按历史位次对照。'}]
+        with self.sessions.begin() as db:
+            save_state(db, db.get(MultiAgentSession, 's1'), state)
+        requests = []
+
         class FailingClient:
             def __init__(self): self.chat=NS(completions=NS(create=self.create))
             async def create(self, **kwargs):
+                requests.append(kwargs['messages'])
                 raise APIConnectionError(request=httpx.Request('POST', 'https://example.invalid'))
         factory=lambda state,**kwargs:MultiAgentRuntime(state,settings=SETTINGS,client=FailingClient(),**kwargs)
         worker=RunWorker(self.sessions,factory,max_attempts=3)
         for _ in range(3): await worker.run_once()
+        self.assertTrue(all(state['conversation'][0] in messages for messages in requests))
         with self.sessions() as db:
             run=db.get(AgentRun,'run1')
             self.assertEqual((run.status,run.attempts),('failed',3))
+            self.assertEqual(json.loads(run.result_json)['provider_error'], 'connection')
             steps=list(db.scalars(select(RunStep)))
             self.assertEqual(len(steps),3)
             self.assertTrue(all(s.error_code=='APIConnectionError' for s in steps))
-            self.assertEqual(len(load_state(db,db.get(MultiAgentSession,'s1'))['conversation']),2)
+            self.assertEqual(len(load_state(db,db.get(MultiAgentSession,'s1'))['conversation']),4)
+
+    async def test_quota_failure_restores_unstarted_research_without_automatic_retry(self):
+        await self.assert_quota_outcome(started=False)
+
+    async def test_quota_failure_after_model_work_keeps_confirmation_consumed(self):
+        await self.assert_quota_outcome(started=True)
+
+    async def assert_quota_outcome(self, *, started):
+        state = self.create_run('确认调查', ['scope'])
+        state['pending']['scope'] = {'kind': 'research', 'text': '调查计算机', 'profile_version': 1}
+        with self.sessions.begin() as db:
+            save_state(db, db.get(MultiAgentSession, 's1'), state)
+
+        class QuotaClient(ScriptClient):
+            async def create(self, **kwargs):
+                if started and not self.requests:
+                    return await super().create(**kwargs)
+                response = httpx.Response(429, request=httpx.Request('POST', 'https://example.invalid'))
+                raise RateLimitError('upstream-private-text', response=response, body={'code': 'insufficient_quota'})
+
+        def runtime(state, **kwargs):
+            return MultiAgentRuntime(state, settings=SETTINGS,
+                                     client=QuotaClient([('get_profile', {})]), **kwargs)
+
+        await RunWorker(self.sessions, runtime).run_once()
+        with self.sessions() as db:
+            run = db.get(AgentRun, 'run1')
+            self.assertEqual((run.status, run.attempts), ('failed', 1))
+            result = json.loads(run.result_json)
+            self.assertEqual(result['provider_error'], 'quota')
+            self.assertNotIn('upstream-private-text', run.result_json)
+            state = load_state(db, db.get(MultiAgentSession, 's1'))
+            self.assertEqual(len(state['conversation']), 2)
+            if started:
+                self.assertNotIn('scope', state['pending'])
+            else:
+                self.assertEqual(state['pending']['scope'], {'kind': 'research', 'text': '调查计算机',
+                    'profile_version': 1, 'retry_after_provider_error': True})
 
 
 class AsyncApiTests(unittest.TestCase):

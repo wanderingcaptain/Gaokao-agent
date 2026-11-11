@@ -342,7 +342,9 @@ function renderConversation(forceScroll = false) {
   if (latest && !run && ['failed', 'degraded', 'cancelled'].includes(latest.status)) {
     const actions = element('div', null, 'actions');
     const retry = current.runs.find(item => item.input_text && !item.confirmed);
-    if (retry && !selectedSession()?.archived) {
+    const canRetryConfirmation = latest.confirmed && Object.values(state?.pending || {}).some(
+      item => item.retry_after_provider_error && item.profile_version === state.profile_version);
+    if (retry && !canRetryConfirmation && !selectedSession()?.archived) {
       actions.append(button('将问题放回输入框', () => {
         if (appendDraft(retry.input_text)) $('message').focus();
       }, 'secondary'));
@@ -411,9 +413,10 @@ function renderConfirmations(state) {
     const description = item.kind === 'research' ? item.text : `记录${FIELDS[item.field] || item.field}：${item.value}`;
     const card = element('div', null, 'confirmation');
     const actions = element('div', null, 'actions');
-    actions.append(button('确认并继续', () => send('确认：' + description, [id]).catch(handleError), 'primary'),
+    const retry = item.retry_after_provider_error;
+    actions.append(button(retry ? '重试研究' : '确认并继续', () => send('确认：' + description, [id]).catch(handleError), 'primary'),
       button('略过', () => dismissConfirmation(id).catch(handleError)));
-    card.append(element('strong', '待你确认'), element('p', description), actions);
+    card.append(element('strong', retry ? '研究尚未开始，可重试原范围' : '待你确认'), element('p', description), actions);
     container.append(card);
   }
 }

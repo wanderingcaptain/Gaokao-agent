@@ -11,6 +11,7 @@ const {chromium} = require('playwright');
 
 const root = path.resolve(__dirname, '../..');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const live = process.argv.includes('--live');
 
 async function freePort() {
   const server = net.createServer();
@@ -105,6 +106,9 @@ async function manageResearch(page) {
   await page.getByRole('button', {name: '确认并继续'}).waitFor({state: 'hidden'});
   await send(page, '重新研究计算机');
   await page.getByRole('button', {name: '确认并继续'}).click();
+  await page.getByText(/模型服务额度不足/).waitFor();
+  await page.reload();
+  await page.getByRole('button', {name: '重试研究', exact: true}).click();
   await page.getByText('已保存浏览器验收方案。', {exact: true}).waitFor();
   await page.getByRole('button', {name: /志愿方案 · 第 1 版/}).click();
   await page.getByRole('table', {name: '有序候选'}).waitFor();
@@ -178,13 +182,67 @@ async function verifyConversations(page) {
   return first;
 }
 
+async function liveRun(page, base, submit) {
+  const [response] = await Promise.all([
+    page.waitForResponse(res => /\/sessions\/[^/]+\/messages$/.test(res.url()) && res.request().method() === 'POST'),
+    submit(),
+  ]);
+  assert.ok(response.ok(), '真实研究请求未被接受，HTTP ' + response.status());
+  const {id} = await response.json();
+  const token = await page.evaluate(() => localStorage.getItem('gaokao_auth_token'));
+  const deadline = Date.now() + 310000;
+  while (Date.now() < deadline) {
+    const status = await page.request.get(base + '/api/v2/agent/runs/' + id, {
+      headers: {Authorization: 'Bearer ' + token},
+    });
+    assert.ok(status.ok(), '无法读取真实研究状态，HTTP ' + status.status());
+    const run = await status.json();
+    if (run.result) return run.result;
+    await sleep(750);
+  }
+  throw new Error('真实研究在 310 秒内未结束');
+}
+
+async function verifyLive(page, base) {
+  await register(page, 'browser_live');
+  await profile(page);
+  await page.locator('#history-open').click();
+  await page.locator('#history-form [name=school]').fill('北京邮电大学');
+  await page.locator('#history-form [name=major]').fill('计算机');
+  await page.getByRole('button', {name: '查询', exact: true}).click();
+  await page.locator('#history-results').getByRole('heading', {name: /北京邮电大学/}).first().waitFor();
+  await page.locator('#history-dialog [data-close]').click();
+  console.log('真实历史库查询通过');
+
+  const first = await liveRun(page, base, () => send(page,
+    '请按我已保存的考生条件研究北京邮电大学的计算机相关专业，查数据库并给出一份带历史来源的志愿草案。请先请求我确认调查。'));
+  await page.locator('#messages').getByText(first.text, {exact: true}).waitFor();
+  assert.equal(first.status, 'waiting', '真实模型尚未到达调查确认环节。' + (first.provider_error || first.status));
+  assert.ok(first.confirmation_id, '真实模型未提供调查确认编号');
+  const card = page.locator('#confirmations .confirmation').filter({hasText: first.text});
+  const finished = await liveRun(page, base, () => card.getByRole('button', {name: '确认并继续'}).click());
+  assert.equal(finished.status, 'completed', '真实模型尚未完成方案。' + (finished.provider_error || finished.status));
+  await page.getByRole('button', {name: /志愿方案 · 第 \d+ 版/}).first().click();
+  await page.getByRole('table', {name: '有序候选'}).waitFor();
+  await page.getByRole('heading', {name: /资料来源/}).waitFor();
+  assert.match(await page.locator('#artifact-content').innerText(), /北京邮电大学/);
+  const download = page.waitForEvent('download');
+  await page.locator('#export-artifact').click();
+  const file = await fs.readFile(await (await download).path(), 'utf8');
+  assert.match(file, /北京邮电大学/);
+  console.log('真实模型浏览器验收通过，已核对方案、历史来源和下载文件。');
+}
+
 async function main() {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'gaokao-workbench-'));
   const port = await freePort();
   const base = 'http://127.0.0.1:' + port;
   const python = process.env.GAOKAO_TEST_PYTHON || path.join(root, '.venv', 'bin', 'python');
   const backend = path.join(root, 'backend');
-  const server = spawn(python, ['-m', 'uvicorn', 'browser_fixture:app', '--host', '127.0.0.1', '--port', String(port)], {
+  const serverArgs = live
+    ? ['-c', 'import sys, uvicorn; from database.import_data import run_import; run_import(); uvicorn.run("main:app", host="127.0.0.1", port=int(sys.argv[1]))', String(port)]
+    : ['-m', 'uvicorn', 'browser_fixture:app', '--host', '127.0.0.1', '--port', String(port)];
+  const server = spawn(python, serverArgs, {
     cwd: backend,
     env: {...process.env, PYTHONPATH: path.join(backend, 'tests'), PYTHONDONTWRITEBYTECODE: '1',
       DATABASE_URL: 'sqlite:///' + path.join(folder, 'browser.db'), PROFILES_DIR: path.join(folder, 'profiles'),
@@ -205,6 +263,11 @@ async function main() {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);
+    if (live) {
+      await verifyLive(page, base);
+      assert.deepEqual(errors, []);
+      return;
+    }
     const invalid = await page.request.post(base + '/api/v1/auth/register', {
       data: {username: 'browser_invalid', password: 'sensitive-password'},
     });

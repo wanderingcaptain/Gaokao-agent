@@ -7,6 +7,10 @@ from urllib.parse import urlsplit
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 
+class ModelConfigurationError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class ModelSettings:
     provider: Literal["qwen", "deepseek"]
@@ -43,7 +47,7 @@ class ModelSettings:
 def create_client(settings: ModelSettings | None = None):
     settings = settings or ModelSettings.from_env()
     if not settings.api_key or settings.api_key == "your_api_key_here":
-        raise ValueError(f"未配置 {settings.provider.upper()}_API_KEY 或 LLM_API_KEY")
+        raise ModelConfigurationError(f"未配置 {settings.provider.upper()}_API_KEY 或 LLM_API_KEY")
     direct_hosts = {host.strip().lower() for host in os.getenv("LLM_NO_PROXY", "").split(",") if host.strip()}
     hostname = urlsplit(settings.base_url).hostname
     http_client = DefaultAsyncHttpxClient(trust_env=False) if hostname in direct_hosts else None

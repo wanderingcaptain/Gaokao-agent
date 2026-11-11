@@ -1,6 +1,9 @@
 """Isolated browser fixture. Runs the real HTTP API and worker with a scripted model."""
 import asyncio
 
+import httpx
+from openai import PermissionDeniedError
+
 from agents.runtime import MultiAgentRuntime
 from database.models import AdmissionRecord, SessionLocal, University
 from main import app
@@ -45,7 +48,11 @@ class BrowserRuntime(MultiAgentRuntime):
             ]
         else:
             script = [('request_confirmation', {'text': '开始院校调查？'})]
-        self.client = SlowClient(script) if text == '测试停止研究' else ScriptClient(script)
+        prior_quota_failure = any('模型服务额度不足' in item['content'] for item in self.state['conversation'])
+        if confirmed_ids and not prior_quota_failure:
+            self.client = QuotaClient([])
+        else:
+            self.client = SlowClient(script) if text == '测试停止研究' else ScriptClient(script)
         return await super().run(text, confirmed_ids)
 
 
@@ -53,6 +60,12 @@ class SlowClient(ScriptClient):
     async def create(self, **kwargs):
         await asyncio.sleep(20)
         return await super().create(**kwargs)
+
+
+class QuotaClient(ScriptClient):
+    async def create(self, **kwargs):
+        response = httpx.Response(403, request=httpx.Request('POST', 'https://example.invalid'))
+        raise PermissionDeniedError('fixture quota exhausted', response=response, body={'code': 'insufficient_quota'})
 
 
 multi_agent.MultiAgentRuntime = BrowserRuntime

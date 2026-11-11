@@ -136,11 +136,11 @@ class RunWorker:
         try:
             result = await task
             self.finish(run_id, result)
-        except TransientFailure:
+        except TransientFailure as exc:
             if attempts < self.max_attempts:
                 self.release(run_id, 'provider_retry')
             else:
-                self.finish(run_id, {'status': 'failed', 'text': '模型服务重试次数已用尽，已保存结果保留。'})
+                self.finish(run_id, {'status': 'failed', 'text': str(exc), 'provider_error': exc.reason})
         except (RunCancelled, asyncio.CancelledError):
             if self.stopping:
                 self.release(run_id, 'worker_shutdown')

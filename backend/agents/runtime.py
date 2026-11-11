@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TypedDict
 from pydantic import ValidationError
 from langgraph.graph import StateGraph, START, END
-from providers.client import ModelSettings, create_client, request_options, assistant_message
+from providers.client import ModelConfigurationError, ModelSettings, create_client, request_options, assistant_message
 from agents.schemas import tool_definitions
 from tools.research_session import ResearchTools
 from tools.planning import effective_profile
@@ -29,7 +29,23 @@ class BudgetExceeded(Exception):
 
 
 class TransientFailure(Exception):
-    pass
+    def __init__(self, reason, message):
+        super().__init__(message)
+        self.reason = reason
+
+
+def provider_failure(exc):
+    if getattr(exc, 'code', None) == 'insufficient_quota':
+        return 'quota', '模型服务额度不足。额度恢复后可以继续研究。'
+    if isinstance(exc, ModelConfigurationError):
+        return 'configuration', '模型服务尚未配置。配置完成后可以继续研究。'
+    if isinstance(exc, (AuthenticationError, PermissionDeniedError)):
+        return 'access', '模型服务拒绝了本轮请求。访问恢复后可以继续研究。'
+    if isinstance(exc, RateLimitError):
+        return 'rate_limit', '模型服务请求过于频繁，重试次数已用尽。请稍后继续研究。'
+    if isinstance(exc, APIConnectionError):
+        return 'connection', '连接模型服务失败，重试次数已用尽。网络恢复后可以继续研究。'
+    return 'service', '模型服务暂不可用，重试次数已用尽。请稍后继续研究。'
 
 
 def new_state():
@@ -170,6 +186,8 @@ class MultiAgentRuntime(ResearchTools):
         if fresh or role not in self.role_messages:
             messages = self.context(role, self.delegation if role != 'coordinator' else None)
             # On recovery, reconstruct from tool facts, never persist hidden model reasoning.
+            if role == 'coordinator':
+                messages.extend(self.state['conversation'][-20:])
             facts = self.execution.get('observations', {}).get(role, [])[-20:] if not fresh else []
             messages.append({'role': 'user', 'content': json.dumps({'user_message': self.user_text,
                 'completed_tools': facts, 'resumed': bool(facts)}, ensure_ascii=False)})
@@ -307,6 +325,10 @@ class MultiAgentRuntime(ResearchTools):
                     self.authorized = True
                 del self.state['pending'][cid]
             self.execution.update(initialized=True, role='coordinator', phase='model', observations={}, metrics=[])
+            if self.authorized:
+                self.execution['research_confirmations'] = {
+                    cid: pending for cid, pending in confirmations if pending['kind'] == 'research'
+                }
             self.messages = self.context('coordinator') + self.state['conversation'][-20:]
             self.messages.append({'role': 'user', 'content': text})
             self.role_messages['coordinator'] = self.messages
@@ -323,11 +345,13 @@ class MultiAgentRuntime(ResearchTools):
                     await self.build_graph().ainvoke({}, {'recursion_limit': 200})
         except (BudgetExceeded, TimeoutError):
             self.reply = {'status': 'degraded', 'text': '本轮预算已耗尽；已完成产物保留，未完成部分不能视为核实。'}
-        except (APIConnectionError, RateLimitError, InternalServerError):
-            self.save_execution()
-            raise TransientFailure('模型服务暂不可用') from None
-        except (AuthenticationError, PermissionDeniedError):
-            self.reply = {'status': 'failed', 'text': '模型服务拒绝了本轮请求。可以先查询历年录取，服务恢复后再继续研究。'}
+        except (APIConnectionError, RateLimitError, InternalServerError,
+                AuthenticationError, PermissionDeniedError, ModelConfigurationError) as exc:
+            reason, message = provider_failure(exc)
+            if reason in {'rate_limit', 'connection', 'service'}:
+                self.save_execution()
+                raise TransientFailure(reason, message) from None
+            self.reply = {'status': 'failed', 'text': message, 'provider_error': reason}
         except asyncio.CancelledError:
             raise
         except Exception:
