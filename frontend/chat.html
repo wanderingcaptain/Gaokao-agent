@@ -1,43 +1,171 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>志愿研究室 · 对话规划</title>
-  <meta name="description" content="从兴趣出发，研究专业、比较院校，保留每一次志愿方案与资料来源。">
-  <link rel="stylesheet" href="/static/chat.css?v=e9c5137c2ad1">
-  <script src="/static/chat.js?v=99a0d9c1b6f6" defer></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>高考 Agent · 志愿研究室</title>
+  <meta name="description" content="查历年录取、探索专业、比较院校，保留志愿研究的方案与来源。">
+  <link rel="stylesheet" href="/static/chat.css?v=2a6df8932566">
+  <script src="/static/chat.js?v=e9abaf854bc9" defer></script>
 </head>
 <body>
-<header><a class="brand" href="/chat"><span class="mark">研</span> 志愿研究室</a><span class="subtle">从兴趣出发，让选择有依据</span><a href="/">画像表单</a><button id="logout" class="quiet" hidden>退出登录</button></header>
-<div id="notice" role="status" aria-live="polite" hidden></div>
-<section id="auth" class="auth-card" hidden>
-  <p class="eyebrow">YOUR NEXT CHAPTER</p><h1>一起找到适合你的方向</h1>
-  <p>聊兴趣、查专业、比较学校。研究进度和每一版方案都会为你保留。</p>
-  <form id="auth-form"><label>用户名<input id="username" autocomplete="username" required minlength="3" maxlength="20"></label>
-  <label>密码<input id="password" type="password" autocomplete="current-password" required minlength="8" maxlength="32"></label>
-  <div class="actions"><button type="submit">登录</button><button type="button" id="register" class="secondary">注册并开始</button></div></form>
+<header class="app-header">
+  <a class="brand" href="/"><span class="mark" aria-hidden="true">志</span>高考 Agent</a>
+  <div class="header-links">
+    <a href="/form">传统填报表单</a>
+    <span id="account-name" hidden></span>
+    <button id="logout" class="quiet" type="button" hidden>退出</button>
+  </div>
+</header>
+
+<div id="notice" class="notice" role="status" hidden></div>
+<section id="loading" class="auth-card" aria-live="polite">
+  <h1>正在打开志愿研究室</h1>
+  <p id="loading-text">正在连接服务…</p>
+  <button id="retry-start" type="button" hidden>重新连接</button>
 </section>
-<main id="workspace" hidden>
-  <aside class="sidebar"><div class="section-top"><h2>我的研究</h2><button id="new-session" class="quiet">＋ 新对话</button></div><nav id="sessions" aria-label="研究会话"></nav>
-  <div class="side-note">每个结论都值得追问。<br>查看来源，保留取舍，慢慢作出自己的选择。</div></aside>
-  <section class="conversation"><div class="conversation-head"><div><p class="eyebrow">EXPLORE YOUR POSSIBILITIES</p><h1>聊聊你的下一站</h1></div><span class="badge" id="task-status">准备就绪</span></div>
-  <div id="messages" role="log" aria-live="polite"></div>
-  <div id="progress" aria-live="polite" hidden><span class="pulse"></span><span id="progress-text">正在研究</span><button id="cancel" class="quiet">停止研究</button></div>
-  <div id="confirmations"></div>
-  <form id="message-form"><label class="sr-only" for="message">你想了解什么</label><textarea id="message" rows="3" maxlength="4000" placeholder="例如：我喜欢数学和动手解决问题，想了解计算机与电子信息的区别……" required></textarea><div class="compose-bottom"><span>先聊方向，也可以直接比较已有候选</span><button id="send" type="submit">发送 ↗</button></div></form>
+<main id="auth" class="auth-layout" hidden>
+  <section class="auth-intro">
+    <p class="section-label">志愿研究室</p>
+    <h1>从一个问题开始研究你的志愿</h1>
+    <p>查历年录取，比较院校和专业。对话、研究报告和每版方案都保存在你的账号下。</p>
+    <ul><li>先探索感兴趣的专业</li><li>有省位次后对照历史记录</li><li>按来源核实报考条件</li></ul>
   </section>
-  <aside class="inspector">
-    <section><div class="section-top"><h2>研究成果</h2><span id="artifact-count" class="subtle">0 份</span></div><div id="artifacts"><p class="empty">研究报告与方案将在这里出现。</p></div></section>
-    <details open><summary>我的条件与偏好</summary><p class="subtle">由你明确保存的条件会用于后续会话。执行中的任务结束后可修改。</p>
-      <form id="profile-form" class="compact"><div class="grid2"><label>招生省份<input name="province" value="广东" required></label><label>目标年份<input name="target_year" type="number" min="2000" max="2100" required></label>
-      <label>科类<select name="subject_type"><option>物理类</option><option>历史类</option></select></label><label>省位次<input name="province_rank" type="number" min="1" max="10000000" required></label></div>
-      <label>已选科目（逗号分隔）<input name="selected_subjects" placeholder="物理，化学，生物"></label><label>排除城市（逗号分隔）<input name="excluded_cities" placeholder="未排除"></label>
-      <label>每年最高预算（元）<input name="annual_budget_max" type="number" min="0" placeholder="暂不确定"></label><label class="check"><input name="accept_sino_foreign" type="checkbox">接受中外合作</label>
-      <button type="submit" class="secondary">保存这些条件</button></form><div id="memories"></div>
-    </details>
-    <details><summary>本轮执行记录</summary><div id="metrics" class="subtle">发起研究后可查看耗时和调用记录。</div></details>
+  <section class="auth-card">
+    <h2 id="auth-title">登录志愿研究室</h2>
+    <form id="auth-form">
+      <label for="username">用户名</label>
+      <input id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="20">
+      <label for="password">密码</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="32">
+      <label id="password-confirm-label" for="password-confirm" hidden>确认密码</label>
+      <input id="password-confirm" type="password" autocomplete="new-password" maxlength="32" hidden>
+      <p id="auth-rules" class="subtle" hidden>用户名使用 3–20 位英文字母、数字或下划线。密码使用 8–32 位，包含字母和数字，不含空格。</p>
+      <p id="auth-error" class="form-error" role="alert" hidden></p>
+      <button id="auth-submit" type="submit">登录</button>
+      <button id="auth-switch" type="button" class="quiet">创建账号</button>
+    </form>
+  </section>
+</main>
+
+<main id="workspace" class="workspace" hidden>
+  <div class="mobile-tools">
+    <button id="toggle-sessions" type="button" class="quiet" aria-controls="sidebar" aria-expanded="false">对话</button>
+    <button id="toggle-details" type="button" class="quiet" aria-controls="inspector" aria-expanded="false">条件与成果</button>
+    <button id="mobile-history" type="button" class="quiet">查历年录取</button>
+  </div>
+  <aside id="sidebar" class="sidebar">
+    <button id="new-session" class="new-session" type="button">＋ 新对话</button>
+    <div class="section-top"><h2>研究对话</h2><button id="show-archive" class="quiet" type="button" aria-pressed="false">归档</button></div>
+    <label class="sr-only" for="session-search">搜索对话标题</label>
+    <input id="session-search" type="search" placeholder="搜索对话标题" autocomplete="off">
+    <nav id="sessions" aria-label="研究对话"></nav>
+  </aside>
+
+  <section class="conversation" aria-labelledby="conversation-title">
+    <div class="conversation-head">
+      <div class="conversation-title">
+        <h1 id="conversation-title">新对话</h1>
+        <span id="task-status" class="badge" aria-live="polite" hidden></span>
+      </div>
+      <div class="actions">
+        <button id="history-open" class="secondary" type="button">查历年录取</button>
+        <button id="session-settings" class="quiet" type="button" hidden>对话设置</button>
+      </div>
+    </div>
+    <div id="other-run" class="context-bar" hidden><span>另一对话的研究在后台进行。</span><button id="go-to-run" class="quiet" type="button">查看研究</button></div>
+    <div id="session-context" class="context-bar" hidden></div>
+    <div id="messages" role="log" aria-label="消息" aria-live="polite"></div>
+    <section id="execution" class="execution" hidden aria-label="研究进度">
+      <div class="section-top"><span id="progress-text" role="status">正在准备研究…</span><button id="cancel" class="quiet" type="button">停止</button></div>
+      <details id="execution-details"><summary>执行记录</summary><ol id="progress-steps"></ol></details>
+    </section>
+    <section id="confirmations" aria-label="待你确认的操作" hidden></section>
+    <form id="message-form">
+      <label class="sr-only" for="message">发送研究问题</label>
+      <textarea id="message" rows="3" maxlength="4000" placeholder="例如：我喜欢数学和动手实践，想比较计算机和电子信息。" required></textarea>
+      <div class="compose-bottom"><span id="composer-hint" class="subtle">Enter 发送 · Shift + Enter 换行</span><button id="send" type="submit">发送 <span aria-hidden="true">↑</span></button></div>
+    </form>
+    <div id="archived-composer" class="context-bar" hidden><span>此对话已归档。</span><button id="restore-session" class="secondary" type="button">恢复对话</button></div>
+  </section>
+
+  <aside id="inspector" class="inspector">
+    <section>
+      <div class="section-top"><h2>研究成果</h2><span id="artifact-count" class="subtle">0 份</span></div>
+      <div id="artifacts"><p class="empty">研究报告、审核和方案会出现在这里。</p></div>
+    </section>
+    <section>
+      <div class="section-top"><h2>我的考生条件</h2><button id="edit-profile" type="button" class="quiet">编辑</button></div>
+      <p id="profile-summary" class="subtle">可以先聊专业。保存考生条件后，可以对照省位次和选科。</p>
+      <p id="coverage" class="subtle"></p>
+    </section>
+    <section>
+      <div class="section-top"><h2>跨对话偏好</h2><button id="open-memory" type="button" class="quiet">管理</button></div>
+      <p id="memory-summary" class="subtle">研究中记录的兴趣和偏好会在这里显示。</p>
+    </section>
+    <p class="source-note">历史录取用于比较。报考资格、招生计划及费用以目标年度官方资料为准。</p>
   </aside>
 </main>
-<dialog id="artifact-dialog"><div class="section-top"><h2 id="artifact-title">研究详情</h2><button id="close-dialog" class="quiet" aria-label="关闭详情">关闭 ×</button></div><div id="artifact-content"></div></dialog>
-<footer>历史数据用于研究参考。资格、招生计划和费用以适用年度的官方信息为准。</footer>
-</body></html>
+
+<dialog id="profile-dialog" aria-labelledby="profile-title">
+  <div class="dialog-head"><h2 id="profile-title">考生条件</h2><button class="quiet" type="button" data-close>关闭</button></div>
+  <form id="profile-form" class="dialog-body">
+    <p class="subtle">保存后，使用账号条件的对话会按新条件研究。对话中确认的预算和排除城市可在「跨对话偏好」里管理。</p>
+    <div class="grid2">
+      <label>招生省份<input name="province" list="province-list" required maxlength="20" placeholder="例如广东"></label>
+      <datalist id="province-list"></datalist>
+      <label>目标年份<input name="target_year" type="number" min="2000" max="2100" required></label>
+      <label>科类<select name="subject_type" required><option value="">请选择</option><option>物理类</option><option>历史类</option><option>理科</option><option>文科</option></select></label>
+      <label>省位次<input name="province_rank" type="number" min="1" max="10000000" placeholder="可以稍后补充"></label>
+      <label>高考总分<input name="gaokao_score" type="number" min="0" max="900" placeholder="可以稍后补充"></label>
+      <label>每年最高预算（元）<input name="annual_budget_max" type="number" min="0" max="10000000" placeholder="暂不确定"></label>
+    </div>
+    <fieldset><legend>已确定的选考科目</legend><div id="subjects" class="checks"></div><p class="subtle">包含首选科目。暂不确定时可以留空。</p></fieldset>
+    <div class="grid2">
+      <label>偏好城市<input name="preferred_cities" maxlength="200" placeholder="广州、深圳"></label>
+      <label>排除城市<input name="excluded_cities" maxlength="200" placeholder="可用顿号或逗号分隔"></label>
+    </div>
+    <label class="check"><input name="accept_sino_foreign" type="checkbox">接受中外合作</label>
+    <p id="profile-error" class="form-error" role="alert" hidden></p>
+    <button type="submit">保存条件</button>
+  </form>
+</dialog>
+<dialog id="memory-dialog" aria-labelledby="memory-title">
+  <div class="dialog-head"><h2 id="memory-title">跨对话偏好</h2><button class="quiet" type="button" data-close>关闭</button></div>
+  <div class="dialog-body"><p class="subtle">修改会用于后续研究，过去的对话与报告保持原样。</p><div id="memories"></div></div>
+</dialog>
+<dialog id="session-dialog" aria-labelledby="session-dialog-title">
+  <div class="dialog-head"><h2 id="session-dialog-title">对话设置</h2><button class="quiet" type="button" data-close>关闭</button></div>
+  <form id="session-form" class="dialog-body">
+    <label>对话标题<input id="session-title" required maxlength="80"></label>
+    <p id="session-error" class="form-error" role="alert" hidden></p>
+    <div class="actions"><button type="submit">保存标题</button><button id="copy-link" class="quiet" type="button">复制链接</button><button id="archive-session" class="quiet" type="button">归档</button></div>
+  </form>
+</dialog>
+<dialog id="artifact-dialog" class="wide-dialog" aria-labelledby="artifact-title">
+  <div class="dialog-head"><h2 id="artifact-title">研究详情</h2><div class="actions"><button id="export-artifact" class="secondary" type="button">下载报告</button><button class="quiet" type="button" data-close>关闭</button></div></div>
+  <div id="artifact-content" class="dialog-body"></div>
+</dialog>
+<dialog id="history-dialog" class="wide-dialog" aria-labelledby="history-title">
+  <div class="dialog-head"><h2 id="history-title">历年录取查询</h2><button class="quiet" type="button" data-close>关闭</button></div>
+  <div class="dialog-body">
+    <form id="history-form">
+      <div class="grid2">
+        <label>招生省份<input name="province" list="province-list" required maxlength="20"></label>
+        <label>科类<select name="subject_type"><option>物理类</option><option>历史类</option><option>理科</option><option>文科</option></select></label>
+        <label>院校名称<input name="school" maxlength="80" placeholder="例如北京邮电大学"></label>
+        <label>专业名称<input name="major" maxlength="80" placeholder="例如计算机"></label>
+        <label>对照省位次<input name="near_rank" type="number" min="1" max="10000000" placeholder="可选，按位次差排序"></label>
+        <label>目标年份<input name="target_year" type="number" min="2000" max="2100"></label>
+      </div>
+      <button type="submit">查询</button>
+    </form>
+    <p class="subtle">同校同专业按科类和招生类型归集，专业组及当年计划请查正式招生资料。</p>
+    <details id="history-comparison" hidden><summary id="comparison-count">已选候选</summary><div id="comparison-table"></div><button id="clear-comparison" class="quiet" type="button">清除对照</button></details>
+    <p id="history-status" role="status"></p>
+    <div id="history-results"></div>
+    <div class="actions"><button id="history-prev" class="secondary" type="button" hidden>上一页</button><button id="history-next" class="secondary" type="button" hidden>下一页</button></div>
+  </div>
+</dialog>
+</body>
+</html>

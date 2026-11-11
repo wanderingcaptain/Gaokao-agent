@@ -29,7 +29,7 @@ class Query(Input):
     subject_type: str = Field(default='', max_length=20)
     enrollment_type: str = Field(default='', max_length=50)
     years: list[int] = Field(default_factory=list, max_length=20)
-    offset: int = Field(default=0, ge=0, le=10000)
+    offset: int = Field(default=0, ge=0, le=100000)
     limit: int = Field(default=20, ge=1, le=50)
 
     @field_validator('years')

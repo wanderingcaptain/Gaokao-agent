@@ -7,7 +7,7 @@ import json
 import time
 from copy import deepcopy
 from types import SimpleNamespace
-from openai import APIConnectionError, RateLimitError, InternalServerError
+from openai import APIConnectionError, AuthenticationError, InternalServerError, PermissionDeniedError, RateLimitError
 from pathlib import Path
 from typing import TypedDict
 from pydantic import ValidationError
@@ -326,6 +326,8 @@ class MultiAgentRuntime(ResearchTools):
         except (APIConnectionError, RateLimitError, InternalServerError):
             self.save_execution()
             raise TransientFailure('模型服务暂不可用') from None
+        except (AuthenticationError, PermissionDeniedError):
+            self.reply = {'status': 'failed', 'text': '模型服务拒绝了本轮请求。可以先查询历年录取，服务恢复后再继续研究。'}
         except asyncio.CancelledError:
             raise
         except Exception:

@@ -6,9 +6,10 @@ import re
 from urllib.parse import urlparse
 
 import httpx
-from sqlalchemy import select, func, tuple_
+from sqlalchemy import case, select, func, tuple_
 from database.models import AdmissionRecord, SessionLocal, University
 from agents.schemas import Query, Search
+from tools.risk import city_name
 
 
 def public_query(query):
@@ -75,7 +76,8 @@ async def search_web(query):
 
 
 def query_history(major='', offset=0, *, school='', city='', subject_type='',
-                  enrollment_type='', years=None, limit=20):
+                  enrollment_type='', years=None, limit=20, province='广东',
+                  near_rank=None, target_year=None):
     """Page program groups, then fetch their complete history as immutable snapshots.
 
     Year filters select groups; histories retain all recorded years so a narrower
@@ -85,31 +87,50 @@ def query_history(major='', offset=0, *, school='', city='', subject_type='',
                  subject_type=subject_type, enrollment_type=enrollment_type,
                  years=years or [], limit=limit)
     with SessionLocal() as db:
-        covered_years = list(db.scalars(select(AdmissionRecord.year).where(
-            AdmissionRecord.province == '广东').distinct().order_by(AdmissionRecord.year)))
+        year_query = (select(AdmissionRecord.year)
+                      .join(University, University.university_id == AdmissionRecord.university_id)
+                      .where(AdmissionRecord.province == province))
+        if args.subject_type:
+            year_query = year_query.where(AdmissionRecord.subject_type == args.subject_type)
+        covered_years = list(db.scalars(year_query.distinct().order_by(AdmissionRecord.year)))
+        rank_year = None
+        if near_rank is not None:
+            ranked_years = year_query.where(AdmissionRecord.min_rank > 0)
+            if target_year is not None:
+                ranked_years = ranked_years.where(AdmissionRecord.year < target_year)
+            rank_year = db.scalar(ranked_years.order_by(AdmissionRecord.year.desc()).limit(1))
         keys = (AdmissionRecord.university_id, AdmissionRecord.major_name,
                 AdmissionRecord.enrollment_type, AdmissionRecord.subject_type)
-        base = select(*keys, func.min(AdmissionRecord.id).label('candidate_id')).join(
+        candidate_id = func.min(AdmissionRecord.id)
+        base = select(*keys, candidate_id.label('candidate_id')).join(
             University, University.university_id == AdmissionRecord.university_id).where(
-            AdmissionRecord.province == '广东')
+            AdmissionRecord.province == province)
         for column, value in ((AdmissionRecord.major_name, args.major), (University.name, args.school)):
             if value:
                 base = base.where(column.contains(value, autoescape=True))
-        for column, value in ((University.city, args.city), (AdmissionRecord.subject_type, args.subject_type),
+        if args.city:
+            city = city_name(args.city)
+            base = base.where(University.city.in_([args.city, city, city + '市', city + '特别行政区']))
+        for column, value in ((AdmissionRecord.subject_type, args.subject_type),
                               (AdmissionRecord.enrollment_type, args.enrollment_type)):
             if value:
                 base = base.where(column == value)
         # HAVING preserves a stable group ID even if only selected years match.
         if args.years:
             base = base.having(func.max(AdmissionRecord.year.in_(args.years)) == 1)
+        ordering = [candidate_id]
+        if near_rank is not None:
+            observed_rank = func.max(case((AdmissionRecord.year == rank_year, AdmissionRecord.min_rank)))
+            base = base.having(observed_rank > 0)
+            ordering.insert(0, func.abs(observed_rank - near_rank))
         grouped = base.group_by(*keys)
         total = db.scalar(select(func.count()).select_from(grouped.subquery()))
-        groups = db.execute(grouped.order_by(func.min(AdmissionRecord.id)).offset(args.offset).limit(args.limit)).all()
+        groups = db.execute(grouped.order_by(*ordering).offset(args.offset).limit(args.limit)).all()
         candidates = []
         histories = {}
         universities = {}
         if groups:
-            rows = db.scalars(select(AdmissionRecord).where(AdmissionRecord.province == '广东',
+            rows = db.scalars(select(AdmissionRecord).where(AdmissionRecord.province == province,
                 tuple_(*keys).in_([tuple(group[:4]) for group in groups])).order_by(AdmissionRecord.year)).all()
             for row in rows:
                 key = (row.university_id, row.major_name, row.enrollment_type, row.subject_type)
@@ -131,8 +152,9 @@ def query_history(major='', offset=0, *, school='', city='', subject_type='',
             item['source_id'] = f'db_{group.candidate_id}_{digest}'
             candidates.append(item)
     next_offset = args.offset + len(candidates)
-    return {'ok': True, 'province': '广东', 'covered_years': covered_years, 'candidates': candidates,
+    return {'ok': True, 'province': province, 'covered_years': covered_years, 'candidates': candidates,
         'offset': args.offset, 'returned': len(candidates), 'total': total,
+        'rank_year': rank_year,
         'next_offset': next_offset if next_offset < total else None,
         'remaining': max(0, total - next_offset),
         'warning': '历史记录不是目标年度资格；年份过滤仅筛选候选，历史保留全部年份；跨年同专业不重复入表'}

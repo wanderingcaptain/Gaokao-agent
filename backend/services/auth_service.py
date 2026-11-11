@@ -18,6 +18,7 @@ from database.models import User, get_db
 
 CST = timezone(timedelta(hours=8))
 security = HTTPBearer(auto_error=False)
+_LOCAL_SECRET = secrets.token_bytes(48)
 
 
 def now_iso() -> str:
@@ -54,7 +55,9 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def _jwt_secret() -> bytes:
-    secret = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
+    secret = os.getenv("JWT_SECRET_KEY", "").strip()
+    if secret in {"", "dev-only-change-me", "please_change_this_secret"}:
+        return _LOCAL_SECRET
     return secret.encode("utf-8")
 
 

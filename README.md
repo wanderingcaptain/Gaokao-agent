@@ -1,14 +1,10 @@
 # 高考志愿规划 Agent
 
-默认旧页面仍运行单 Agent；四角色 v2 已提供独立聊天页面 `/chat`，首页可进入。
-v2 已接入持久后台任务、重启恢复、SSE 进度、审核修正、年度资格规则和跨会话记忆。
-运行方式、迁移、接口及验收范围见 [六项架构完成记录](docs/architecture-v3.md)。
-角色提示词、API 使用方式与明确限制见 [四 Agent 后端原型](docs/multi-agent-v2.md)。
-支持配置 Qwen 或 DeepSeek，默认兼容原 Qwen 配置；未自动切换供应商。
-详见 [重构基础、配置与边界](docs/architecture-foundation.md)。
+首页 `/` 和 `/chat` 打开志愿研究室，传统填报表单可从 `/form` 进入。两个入口使用同一个账号。
+研究室支持多对话、草稿恢复、后台研究、方案版本、来源查看和下载。可以先探索专业，有了省位次后再补考生条件。
+历年录取查询、位次排序和候选对照可直接使用数据库。对话研究可配置 Qwen 或 DeepSeek。
 
-保留考生画像表单，新增目标输入、追问回答、候选比较、方案修正与版本回看。
-Agent 使用 Qwen 工具调用选择下一步；数据库提供事实，规则引擎计算历史风险，服务端校验方案。
+任务恢复、数据迁移和审核机制见 [架构说明](docs/architecture-v3.md)。工具权限和数据口径见 [工具清单](docs/tools.md)。
 
 ## 开发运行
 
@@ -18,14 +14,19 @@ Agent 使用 Qwen 工具调用选择下一步；数据库提供事实，规则�
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r backend/requirements.lock.txt
 cd backend
-cp .env.example .env
+test -f .env || cp .env.example .env
 # 本地编辑 .env，配置 QWEN_API_KEY 和 JWT_SECRET_KEY
+../.venv/bin/python -m database.import_data
 ../.venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
+打开 [本地志愿研究室](http://127.0.0.1:8000/)。部署时设置自己的随机 `JWT_SECRET_KEY`，各 API 进程使用同一个值。
+未设置密钥的本地进程使用临时随机签名，重启后需要重新登录。
+
 依赖锁记录了 macOS arm64 / Python 3.12 的离线验证环境；其他平台可使用 requirements.txt。
-首次需要导入录取数据。开发用 `python -m scripts.seed_test_data` 会清空并重建录取、一分一段和院校数据，
-只能用于隔离测试数据库；种子数据为模拟数据，不能用于实际填报。
+`database.import_data` 导入仓库随附的广东 2021–2025 年历史快照，保留已有院校、录取记录和用户数据，可重复执行。
+同一院校、专业、科类和招生类型下的多专业组可能归集成一条历史记录。目标年度的专业组、选科、学费和计划需要官方资料。
+`python -m scripts.seed_test_data` 会重建录取、一分一段和院校数据，仅用于隔离测试数据库。
 
 v1 采用单进程任务执行器，请使用单个 Uvicorn worker。v1 服务重启时，活动轮次标记失败并解除锁；
 已保存的画像、对话和方案可继续使用，未完成的模型调用不会自动重放。
@@ -34,6 +35,14 @@ v2 默认启动数据库队列工作任务，浏览器断开不取消执行；�
 可设置 `AGENT_EMBEDDED_WORKER=false`，另开进程运行 `python -m services.run_worker`。
 
 ## 使用与接口
+
+1. 注册或登录后，点击「新对话」，从兴趣、院校或专业问题开始。每段对话的草稿保存在当前浏览器。
+2. 在「我的考生条件」中填写省份、科类、目标年与已知位次。传统表单结果页也可用「带着画像进入 Agent」创建独立画像对话。
+3. 用「查历年录取」按院校或专业搜索。填入省位次可按目标年前最近有位次记录的一年排序，也可对照最多三项。
+4. 研究执行期间可以切换对话、刷新或停止。报告、审核、来源和方案版本在「研究成果」中查看和下载。
+5. 在「对话设置」中改名、复制链接或归档，链接只对该账号可用。已归档的对话可恢复。
+
+### 传统表单接口
 
 表单的“其他补充需求”作为初始目标。结果页可以继续提问、比较学校、要求调整方案。
 需要修改硬约束时，展开“明确修改画像条件”，勾选应用修改后发送；这会创建新的任务画像版本。
@@ -76,12 +85,15 @@ Qwen 工具调用依据：[阿里云 Function Calling 文档](https://www.alibab
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=backend .venv/bin/python -B -m unittest discover -s backend/tests -v
-node --check frontend/agent.js
+node --check frontend/chat.js
+npm ci
+npx playwright install chromium
+npm run test:browser
 ```
 
-离线用例覆盖校验失败后修正、追问与比较的不同路径、非法参数、伪造候选、
-缺少密钥与步数耗尽降级、任务持久化、追问恢复、幂等、用户隔离、取消和重启恢复。
-真实 Qwen 联调与完整浏览器验收需另行验证，不由离线测试替代。
+已有 Chrome 时可用 `GAOKAO_TEST_BROWSER=chrome npm run test:browser`。浏览器测试使用隔离数据库和脚本模型，覆盖注册登录、
+画像、录取查询及对照、断连重试、确认、报告下载、记忆管理、取消、归档、用户隔离和移动端。
+本机真实数据和供应商探测结果见 [工作台验收记录](docs/workbench-acceptance.md)。
 
 页面样式已编译到 frontend/styles.css，不依赖 Tailwind 在线 CDN。
 修改页面样式类后执行 `npm ci && npm run build:css`，并一并提交生成的 CSS。

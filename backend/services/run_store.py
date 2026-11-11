@@ -73,8 +73,9 @@ def event(db, run_id, kind, data):
 
 
 def public_run(run):
+    payload = json.loads(run.input_json)
     return {'id': run.id, 'session_id': run.session_id, 'request_id': run.request_id,
-        'input_text': json.loads(run.input_json).get('text', ''),
+        'input_text': payload.get('text', ''), 'confirmed': bool(payload.get('confirmed_ids')),
         'status': run.status, 'attempts': run.attempts, 'created_at': run.created_at,
         'updated_at': run.updated_at, 'cancel_requested': bool(run.cancel_requested),
         'result': json.loads(run.result_json) if run.result_json else None}

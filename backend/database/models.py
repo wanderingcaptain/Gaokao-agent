@@ -178,6 +178,14 @@ class MultiAgentSession(Base):
     active_request_id = Column(Text, nullable=True)
 
 
+class ConversationSettings(Base):
+    __tablename__ = 'conversation_settings_v2'
+    session_id = Column(Text, primary_key=True)
+    title = Column(Text)
+    archived = Column(Integer, nullable=False, default=0)
+    created_at = Column(Float, nullable=False, default=0)
+
+
 class SchemaMigration(Base):
     __tablename__ = 'schema_migrations'
     version = Column(Integer, primary_key=True)

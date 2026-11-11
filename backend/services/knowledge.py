@@ -1,6 +1,7 @@
 """User-scoped editable memory; historical artifacts stay immutable."""
 import json
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert
 from database.models import UserKnowledge, UserMemory
 from services.run_store import encode
 
@@ -8,9 +9,9 @@ from services.run_store import encode
 def knowledge(db, uid):
     row = db.get(UserKnowledge, uid)
     if row is None:
-        row = UserKnowledge(user_id=uid, revision=1, profile_json='{}')
-        db.add(row)
-        db.flush()
+        db.execute(insert(UserKnowledge).values(user_id=uid, revision=1, profile_json='{}')
+                   .on_conflict_do_nothing(index_elements=['user_id']))
+        row = db.get(UserKnowledge, uid)
     return row
 
 
@@ -22,11 +23,13 @@ def memories(db, uid):
 def refresh(db, uid, state):
     account = knowledge(db, uid)
     if state.get('knowledge_revision') != account.revision:
-        state['memories'] = memories(db, uid)
-        if state.get('knowledge_revision') is not None:
+        current_memories = memories(db, uid)
+        current_profile = (json.loads(account.profile_json) if state.get('uses_account_profile', True)
+                           else state.get('profile', {}))
+        if state.get('knowledge_revision') is not None and (
+                state.get('memories') != current_memories or state.get('profile') != current_profile):
             state['profile_version'] += 1
-        if not state.get('profile') or state.get('uses_account_profile', True):
-            state['profile'] = json.loads(account.profile_json)
+        state.update(profile=current_profile, memories=current_memories)
         state['knowledge_revision'] = account.revision
     return state
 

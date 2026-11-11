@@ -363,6 +363,14 @@ class HistoryConnectorTests(unittest.TestCase):
         self.assertEqual(query_history()['covered_years'], [])
         self.assertEqual(query_history()['candidates'], [])
 
+    def test_rank_order_uses_only_latest_eligible_year_and_matching_scope(self):
+        result = query_history(subject_type='物理类', near_rank=20019, target_year=2026, limit=3)
+        self.assertEqual(result['rank_year'], 2022)
+        self.assertEqual([item['major_name'] for item in result['candidates']], ['专业19', '专业18', '专业20'])
+        self.assertEqual(query_history(subject_type='历史类', near_rank=20019)['total'], 0)
+        self.assertEqual(query_history(near_rank=20019, target_year=2022)['total'], 0)
+        self.assertEqual(query_history(province='浙江', near_rank=20019)['covered_years'], [])
+
 
 class SearchConnectorTests(unittest.IsolatedAsyncioTestCase):
     async def call(self, handler):

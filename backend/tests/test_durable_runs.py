@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from database.models import (Base, MultiAgentSession, AgentRun, RunStep, ArtifactRecord,
-    SourceRecord, RunEvent, UserMemory)
+    SourceRecord, RunEvent, UserMemory, UserProfile)
 from agents.runtime import MultiAgentRuntime, new_state
 from services.run_store import encode, load_state, save_state, migrate
 from services.run_worker import RunWorker, LeaseLost, RunCancelled
@@ -307,6 +307,50 @@ class AsyncApiTests(unittest.TestCase):
         self.assertEqual(self.client.put('/api/v2/agent/knowledge/profile', json=profile).status_code, 409)
         self.user=NS(id=2)
         self.assertEqual(self.client.get('/api/v2/agent/knowledge').json()['profile'], {})
+
+    def test_conversation_creation_retry_archive_and_ownership(self):
+        base = '/api/v2/agent/sessions'
+        body = {'request_id': 'create-once'}
+        sid = self.client.post(base, json=body).json()['id']
+        self.assertEqual(self.client.post(base, json=body).json()['id'], sid)
+        url = base + '/' + sid
+        self.assertEqual(self.client.patch(url, json={'title': ' 院校比较 '}).status_code, 200)
+        payload = {'request_id': 'run-once', 'text': '比较学校'}
+        run = self.client.post(url + '/messages', json=payload).json()
+        self.assertEqual(self.client.get(base).json()['active_run']['id'], run['id'])
+        self.assertEqual(self.client.patch(url, json={'archived': True}).status_code, 409)
+        self.client.post('/api/v2/agent/runs/' + run['id'] + '/cancel')
+        self.assertEqual(self.client.patch(url, json={'archived': True}).status_code, 200)
+        item = self.client.get(base).json()['sessions'][0]
+        self.assertEqual((item['title'], item['archived']), ('院校比较', True))
+        self.assertEqual(self.client.post(url + '/messages', json=payload).json()['id'], run['id'])
+        self.assertEqual(self.client.post(url + '/messages', json={**payload, 'request_id': 'new'}).status_code, 409)
+        self.user = NS(id=2)
+        self.assertEqual(self.client.patch(url, json={'archived': False}).status_code, 404)
+        self.assertNotEqual(self.client.post(base, json=body).json()['id'], sid)
+
+    def test_imported_profile_stays_scoped_and_stale_confirmation_is_rejected(self):
+        base = '/api/v2/agent'
+        imported = {'basic_info': {'province': '浙江', 'subject_type': '物理类', 'province_rank': 12000}}
+        with self.sessions.begin() as db:
+            db.add(UserProfile(user_id=1, profile_uuid='old', profile_json=encode(imported), created_at='2025'))
+        legacy = self.client.post(base + '/sessions', json={'profile_uuid': 'old'}).json()['id']
+        sid = self.client.post(base + '/sessions', json={}).json()['id']
+        url = base + '/sessions/' + sid
+        with self.sessions.begin() as db:
+            row = db.get(MultiAgentSession, sid)
+            state = load_state(db, row)
+            state['pending']['approval'] = {'kind': 'research', 'profile_version': state['profile_version'], 'text': '开始？'}
+            save_state(db, row, state)
+        profile = {'basic_info': {'province': '广东', 'subject_type': '物理类', 'target_year': 2027}, 'constraints': {}}
+        self.assertEqual(self.client.put(base + '/knowledge/profile', json=profile).status_code, 200)
+        self.assertEqual(self.client.post(url + '/messages', json={
+            'request_id': 'late', 'text': '确认', 'confirmed_ids': ['approval']}).status_code, 422)
+        self.assertEqual(self.client.delete(url + '/confirmations/approval').status_code, 200)
+        self.assertEqual(self.client.get(url).json()['state']['pending'], {})
+        original = self.client.get(base + '/sessions/' + legacy).json()['state']
+        self.assertEqual(original['profile'], imported)
+        self.assertEqual(original['profile_version'], 1)
 
     def test_deleted_memory_cannot_be_restored_by_a_stale_snapshot(self):
         from services.knowledge import knowledge, sync_memories

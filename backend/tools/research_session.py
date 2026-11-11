@@ -264,6 +264,11 @@ class ResearchTools:
         if name == 'query_candidates':
             if not self.authorized:
                 raise ValueError('院校调查未授权')
+            basic = effective_profile(self.state).get('basic_info', {})
+            if basic.get('province'):
+                args = {**args, 'province': basic['province']}
+            if basic.get('subject_type') and not args.get('subject_type'):
+                args = {**args, 'subject_type': basic['subject_type']}
             result = await asyncio.to_thread(self.query, **args)
             if result.get('ok'):
                 candidates = result['candidates']

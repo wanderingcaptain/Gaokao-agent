@@ -1,7 +1,7 @@
 """Deterministic v2 profile, comparison and plan analysis. No model or network calls."""
 from copy import deepcopy
 from statistics import median, pstdev
-from tools.risk import _rank_trend
+from tools.risk import _rank_trend, city_name
 
 UNVERIFIED = ['目标年度报考资格与具体选科', '学费与预算', '专业组与正式填报规则']
 
@@ -14,7 +14,7 @@ def effective_profile(state):
             continue
         if memory['field'] == 'excluded_city':
             cities = constraints.setdefault('excluded_cities', [])
-            if memory['value'] not in cities:
+            if city_name(memory['value']) not in {city_name(city) for city in cities}:
                 cities.append(memory['value'])
         elif memory['field'] == 'annual_budget_max':
             constraints['annual_budget_max'] = int(memory['value'])
@@ -25,7 +25,7 @@ def constraint_differences(candidate, profile):
     differences = []
     constraints = profile.get('constraints', {})
     basic = profile.get('basic_info', {})
-    if candidate.get('city') in constraints.get('excluded_cities', []):
+    if city_name(candidate.get('city')) in {city_name(city) for city in constraints.get('excluded_cities', [])}:
         differences.append('画像已排除该城市')
     if basic.get('province') and basic['province'] != candidate.get('province', '广东'):
         differences.append('历史招生省份与考生不一致')

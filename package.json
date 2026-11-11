@@ -2,9 +2,11 @@
   "name": "gaokao-agent-ui",
   "private": true,
   "scripts": {
-    "build:css": "tailwindcss --content './frontend/*.html' --output ./frontend/styles.css --minify"
+    "build:css": "tailwindcss --content './frontend/*.html' --output ./frontend/styles.css --minify",
+    "test:browser": "node frontend/tests/workbench.cjs"
   },
   "devDependencies": {
+    "playwright": "1.65.0",
     "tailwindcss": "3.4.17"
   }
 }

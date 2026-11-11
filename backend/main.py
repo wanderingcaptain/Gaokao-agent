@@ -3,10 +3,12 @@ FastAPI 应用入口
 启动命令：uvicorn main:app --reload --host 0.0.0.0 --port 8000
 """
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 
 from database.models import init_db
@@ -38,12 +40,22 @@ app.include_router(auth.router)
 app.include_router(agent.router)
 app.include_router(multi_agent.router)
 
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path in {"/api/v1/auth/login", "/api/v1/auth/register"}:
+        errors = [{"loc": error["loc"], "msg": error["msg"], "type": error["type"]}
+                  for error in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": errors})
+    return await request_validation_exception_handler(request, exc)
+
+
 # ── 静态文件（前端）──────────────────────────
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
-    @app.get("/")
+    @app.get("/form")
     async def read_index():
         return FileResponse(os.path.join(FRONTEND_DIR, "index.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
@@ -51,6 +63,7 @@ if os.path.exists(FRONTEND_DIR):
     async def read_result():
         return FileResponse(os.path.join(FRONTEND_DIR, "result.html"), headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
 
+    @app.get("/")
     @app.get("/chat")
     async def read_chat():
         return FileResponse(os.path.join(FRONTEND_DIR, "chat.html"), headers={"Cache-Control": "no-cache"})

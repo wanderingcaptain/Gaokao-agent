@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from database.models import User, UserProfile, get_db
 from services.auth_service import get_current_user
 from services.profile_service import build_profile, get_profile, save_profile
+from tools.risk import city_name
 
 router = APIRouter(prefix="/api/v1", tags=["profile"])
 
@@ -56,7 +57,7 @@ class ProfileCreateRequest(BaseModel):
     def consistent_constraints(self):
         if self.annual_budget_min > self.annual_budget_max:
             raise ValueError("预算下限不能高于上限")
-        if set(self.preferred_cities) & set(self.excluded_cities):
+        if {city_name(city) for city in self.preferred_cities} & {city_name(city) for city in self.excluded_cities}:
             raise ValueError("偏好城市与排除城市不能重叠")
         return self
 

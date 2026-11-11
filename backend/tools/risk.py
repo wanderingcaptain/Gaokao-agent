@@ -148,9 +148,13 @@ def _passes_disliked_subject_filter(major_name: str, disliked_subjects: list[str
     return True
 
 
+def city_name(value: str | None) -> str:
+    return (value or "").strip().removesuffix("特别行政区").removesuffix("市")
+
+
 def _fallback_sort_key(item: dict, preferred_cities: set[str]) -> tuple:
     tier_order = {"冲": 0, "稳": 1, "保": 2}
-    city_bonus = 0 if item["city"] in preferred_cities else 1
+    city_bonus = 0 if city_name(item["city"]) in preferred_cities else 1
     ratio = item.get("risk_ratio") or 9
     return (tier_order.get(item.get("tier"), 9), city_bonus, abs(ratio - 1), -item.get("risk_score", 0))
 
@@ -168,8 +172,8 @@ def run_rule_engine(db: Session, profile: dict) -> list[dict]:
     user_rank = basic["province_rank"]
     if type(user_rank) is not int or user_rank <= 0:
         raise ValueError("考生位次必须为正整数")
-    preferred_cities = set(constraints.get("preferred_cities", []))
-    excluded_cities = set(constraints.get("excluded_cities", []))
+    preferred_cities = {city_name(city) for city in constraints.get("preferred_cities", [])}
+    excluded_cities = {city_name(city) for city in constraints.get("excluded_cities", [])}
     accept_sino_foreign = constraints.get("accept_sino_foreign", False)
     disliked_subjects = profile.get("academic_preferences", {}).get("disliked_subjects", [])
     years_query = db.query(AdmissionRecord.year).filter(
@@ -216,7 +220,7 @@ def run_rule_engine(db: Session, profile: dict) -> list[dict]:
         univ = universities.get(combo.university_id)
         if univ is None:
             continue
-        if univ.city in excluded_cities:
+        if city_name(univ.city) in excluded_cities:
             continue
         if (univ.is_sino_foreign or "中外合作" in combo.enrollment_type) and not accept_sino_foreign:
             continue

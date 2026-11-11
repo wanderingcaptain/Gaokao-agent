@@ -88,6 +88,12 @@ class RuleEngineTest(unittest.TestCase):
 
         self.assertEqual(result, [])
 
+    def test_excluded_city_matches_administrative_suffix(self):
+        self._add_records("计算机科学与技术", [19500, 20000, 20500])
+        profile = self._profile()
+        profile["constraints"]["excluded_cities"] = ["广州市"]
+        self.assertEqual(run_rule_engine(self.db, profile), [])
+
     def test_disliked_major_direction_filter_applies(self):
         self._add_records("计算机科学与技术", [19500, 20000, 20500])
         result = run_rule_engine(self.db, self._profile(disliked_subjects=["计算机类"]))

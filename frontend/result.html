@@ -134,7 +134,8 @@
   <!-- ════ 顶部导航 ════ -->
   <header class="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <a href="/" class="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">← 重新填写</a>
+      <a href="/form" class="text-slate-400 hover:text-white transition-colors text-sm flex items-center gap-1">← 重新填写</a>
+      <a id="research-chat" href="/chat" class="text-indigo-300 text-sm">带着画像进入 Agent</a>
       <span class="text-slate-600">|</span>
       <span class="gradient-text font-bold text-lg">AI 志愿推荐结果</span>
     </div>
@@ -236,6 +237,7 @@
 const AUTH_TOKEN_KEY = 'gaokao_auth_token';
 const AUTH_USER_KEY = 'gaokao_auth_user';
 const uuid       = sessionStorage.getItem('gaokao_uuid') || '';
+if (uuid) document.getElementById('research-chat').href = '/chat?profile=' + encodeURIComponent(uuid);
 let   candidates = JSON.parse(sessionStorage.getItem('gaokao_candidates') || '[]');
 const profileSum = JSON.parse(sessionStorage.getItem('gaokao_profile_summary') || '{}');
 let   aiDone     = sessionStorage.getItem('gaokao_ai_done') === 'true';
@@ -276,7 +278,7 @@ function showLoggedOutScreen() {
         <div class="text-3xl mb-3">✓</div>
         <div class="font-bold text-white text-lg mb-2">已退出登录</div>
         <div class="text-sm text-slate-400 mb-5">正在返回首页...</div>
-        <a href="/" class="tier-tab active inline-block">立即返回</a>
+        <a href="/form" class="tier-tab active inline-block">立即返回</a>
       </div>
     </div>`;
 }
@@ -290,7 +292,7 @@ function logout() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
   showLoggedOutScreen();
-  setTimeout(() => window.location.replace('/'), 80);
+  setTimeout(() => window.location.replace('/form'), 80);
 }
 
 function stopAIScreening() {
@@ -304,7 +306,7 @@ function stopAIScreening() {
 }
 
 if (!getToken()) {
-  window.location.href = '/';
+  window.location.href = '/form';
 }
 
 // 显示个人信息徽章
@@ -559,6 +561,7 @@ async function loadHistoryResult(resultId) {
       window.location.reload();
       return;
     }
+    if (data.profile_uuid) document.getElementById('research-chat').href = '/chat?profile=' + encodeURIComponent(data.profile_uuid);
     candidates = data.result.candidates || [];
     isFallbackResult = !!data.fallback;
     aiDone = true;

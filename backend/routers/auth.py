@@ -3,6 +3,7 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database.models import User, get_db
@@ -63,7 +64,7 @@ def _user_payload(user: User) -> dict:
 
 
 @router.post("/register")
-async def register(body: AuthRequest, db: Session = Depends(get_db)):
+def register(body: AuthRequest, db: Session = Depends(get_db)):
     username = body.username
     exists = db.query(User).filter(User.username == username).first()
     if exists:
@@ -77,14 +78,20 @@ async def register(body: AuthRequest, db: Session = Depends(get_db)):
         updated_at=now,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if db.query(User.id).filter(User.username == username).first():
+            raise HTTPException(status_code=409, detail="用户名已存在") from None
+        raise
     db.refresh(user)
     token = create_access_token(user)
     return {"code": 200, "message": "success", "data": {"token": token, "user": _user_payload(user)}}
 
 
 @router.post("/login")
-async def login(body: AuthRequest, db: Session = Depends(get_db)):
+def login(body: AuthRequest, db: Session = Depends(get_db)):
     username = body.username.strip()
     user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(body.password, user.password_hash):
