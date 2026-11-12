@@ -244,6 +244,11 @@ let currentFilter = 'all';
 let selectedCardIndex = null;
 let selectedCardEl    = null;
 let chartInstance     = null;
+let reportChart       = null;
+window.addEventListener('resize', () => {
+  chartInstance?.resize();
+  reportChart?.resize();
+});
 let isFallbackResult  = false;
 let aiAbortController = null;
 let aiStreamReader    = null;
@@ -724,7 +729,7 @@ function renderDetailPanel(c, history) {
       <div class="flex items-center justify-between">
         <div>
           <div class="text-sm font-semibold text-white">🤖 AI 深度分析报告</div>
-          <div class="text-xs text-slate-400 mt-1">结合考生画像，联网查询该专业就业前景、学校优劣势、报考建议</div>
+          <div class="text-xs text-slate-400 mt-1">结合考生画像和历史录取，整理匹配点与待核实的事项</div>
         </div>
         <button id="ai-report-btn" class="ai-report-btn rounded-xl px-4 py-2 text-sm font-medium flex-shrink-0 ml-4"
           onclick="generateAIReport()">
@@ -736,6 +741,8 @@ function renderDetailPanel(c, history) {
   `;
 
   // 渲染 ECharts 折线图
+  reportChart?.dispose();
+  reportChart = null;
   if (chartInstance) chartInstance.dispose();
   chartInstance = echarts.init(document.getElementById('rank-chart'));
   const axisRanks = [...minRanks.filter(Boolean), ...(userRank ? [userRank] : [])];
@@ -769,12 +776,54 @@ function renderDetailPanel(c, history) {
         symbol:'none', itemStyle:{color:'#f472b6'} }
     ]
   });
-  window.addEventListener('resize', () => chartInstance?.resize());
 }
 
 // ════════════════════════════════════════
 // 生成 AI 报告
 // ════════════════════════════════════════
+function renderModelReport(box, html) {
+  const template = document.createElement('template');
+  template.innerHTML = typeof html === 'string' ? html : '';
+  const body = document.createElement('div');
+  body.className = 'border-t border-white/10 pt-4';
+  const allowed = new Set([
+    'article', 'section', 'div', 'p', 'span', 'h2', 'h3', 'h4', 'h5',
+    'strong', 'b', 'em', 'small', 'br', 'hr', 'ul', 'ol', 'li',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  ]);
+  let chartContainer = null;
+
+  function copyContent(source, target) {
+    for (const child of source.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        target.append(document.createTextNode(child.textContent));
+      } else if (allowed.has(child.localName) && child.namespaceURI === 'http://www.w3.org/1999/xhtml') {
+        const copy = document.createElement(child.localName);
+        if (child.getAttribute('id') === 'dynamic-chart-container') {
+          if (chartContainer) continue;
+          copy.style.width = '100%';
+          copy.style.height = '350px';
+          copy.id = 'dynamic-chart-container';
+          chartContainer = copy;
+        } else {
+          copy.className = child.getAttribute('class') || '';
+          copyContent(child, copy);
+        }
+        target.append(copy);
+      }
+    }
+  }
+
+  copyContent(template.content, body);
+  if (!body.textContent.trim()) throw new Error('模型没有生成可显示的报告');
+  box.replaceChildren(body);
+  if (chartContainer && chartInstance) {
+    reportChart?.dispose();
+    reportChart = echarts.init(chartContainer);
+    reportChart.setOption(chartInstance.getOption());
+  }
+}
+
 async function generateAIReport() {
   const c       = candidates[selectedCardIndex];
   if (!c) return;
@@ -786,7 +835,7 @@ async function generateAIReport() {
   box.innerHTML = `
     <div class="flex items-center gap-3 py-4">
       <div class="spinner"></div>
-      <span class="text-indigo-300 text-sm">AI 正在联网生成深度报告（约1-3分钟）...</span>
+      <span class="text-indigo-300 text-sm">AI 正在根据考生画像和历史记录整理报告…</span>
     </div>`;
 
   try {
@@ -809,19 +858,12 @@ async function generateAIReport() {
     const json = await res.json();
     if (json.code !== 200) throw new Error(json.detail || '报告生成失败');
 
-    const { html, chartConfig } = json.data;
-    box.innerHTML = `<div class="border-t border-white/10 pt-4">${html}</div>`;
-
-    if (chartConfig) {
-      const chartEl = document.getElementById('dynamic-chart-container');
-      if (chartEl) {
-        const aiChart = echarts.init(chartEl);
-        aiChart.setOption(chartConfig);
-        window.addEventListener('resize', () => aiChart.resize());
-      }
-    }
+    if (box.isConnected) renderModelReport(box, json.data.html);
   } catch(e) {
-    box.innerHTML = `<div class="text-red-400 text-sm py-3">报告生成失败：${e.message}</div>`;
+    const error = document.createElement('div');
+    error.className = 'text-red-400 text-sm py-3';
+    error.textContent = '报告生成失败：' + e.message;
+    box.replaceChildren(error);
     btn.disabled = false;
     btn.textContent = '重新生成';
     return;

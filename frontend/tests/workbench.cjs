@@ -233,6 +233,41 @@ async function verifyLive(page, base) {
   console.log('真实模型浏览器验收通过，已核对方案、历史来源和下载文件。');
 }
 
+async function verifyLegacy(page, base) {
+  const external = [];
+  await page.route(url => url.origin !== base, route => {
+    external.push(new URL(route.request().url()).hostname);
+    return route.abort();
+  });
+  await page.goto(base + '/form');
+  assert.equal(await page.locator('a[href="/chat"]').count(), 1);
+  await page.locator('#start-btn').click();
+  await page.locator('#province').selectOption('广东');
+  await page.locator('#subject_type').selectOption('物理类');
+  await page.locator('#gaokao_score').fill('600');
+  await page.locator('#province_rank').fill('20000');
+  for (let step = 1; step <= 4; step++) {
+    await page.locator('#step-' + step).getByRole('button', {name: /下一步/}).click();
+  }
+  await Promise.all([page.waitForURL(base + '/result'), page.locator('#submit-btn').click()]);
+  assert.equal(await page.evaluate(() => window.echarts?.version), '5.5.0');
+  await page.locator('#candidates-list .uni-card').first().click();
+  await page.locator('#rank-chart canvas').first().waitFor();
+  await page.route('**/api/v1/detail/ai-report', route => route.fulfill({json: {code: 200, data: {
+    html: '<h3>历史参考报告</h3><p onclick="window.badReport = true">数据以数据库为准</p>' +
+      '<img src="https://example.invalid/report.png"><div id="dynamic-chart-container"></div>',
+    chartConfig: {series: [{name: '伪造位次', data: [1]}]},
+  }}}));
+  await page.getByRole('button', {name: '生成报告', exact: true}).click();
+  await page.getByRole('heading', {name: '历史参考报告'}).waitFor();
+  await page.locator('#dynamic-chart-container canvas').first().waitFor();
+  assert.equal(await page.locator('#ai-report-content [onclick], #ai-report-content img').count(), 0);
+  const reportSeries = await page.evaluate(() =>
+    window.echarts.getInstanceByDom(document.getElementById('dynamic-chart-container')).getOption().series.map(item => item.name));
+  assert.deepEqual(reportSeries, ['最低录取位次', '考生位次']);
+  assert.deepEqual(external, []);
+}
+
 async function main() {
   const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'gaokao-workbench-'));
   const port = await freePort();
@@ -246,6 +281,7 @@ async function main() {
     cwd: backend,
     env: {...process.env, PYTHONPATH: path.join(backend, 'tests'), PYTHONDONTWRITEBYTECODE: '1',
       DATABASE_URL: 'sqlite:///' + path.join(folder, 'browser.db'), PROFILES_DIR: path.join(folder, 'profiles'),
+      ...(!live ? {LLM_PROVIDER: 'qwen', LLM_API_KEY: '', QWEN_API_KEY: ''} : {}),
       JWT_SECRET_KEY: 'isolated-browser-test', AGENT_EMBEDDED_WORKER: 'true'},
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -312,16 +348,7 @@ async function main() {
     await page.goto(base + '/chat?profile=' + imported);
     await page.locator('#session-context').getByText(/浙江.*12,000/).waitFor();
     assert.equal(new URL(page.url()).searchParams.has('profile'), false);
-    const external = [];
-    await page.route(url => url.origin !== base, route => {
-      external.push(new URL(route.request().url()).hostname);
-      return route.abort();
-    });
-    await page.goto(base + '/form');
-    assert.equal(await page.locator('a[href="/chat"]').count(), 1);
-    await page.goto(base + '/result');
-    assert.equal(await page.evaluate(() => window.echarts?.version), '5.5.0');
-    assert.deepEqual(external, []);
+    await verifyLegacy(page, base);
     assert.deepEqual(errors, []);
     console.log('通过浏览器验收：注册登录、画像、录取对照、草稿恢复、确认、方案与下载、记忆、停止、归档、账号隔离、移动端。');
   } catch (error) {

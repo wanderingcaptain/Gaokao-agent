@@ -104,9 +104,9 @@ _DETAIL_SYSTEM = """你是一个专业的高考志愿填报顾问助手。
 必须包含且仅包含以下两个顶级字段：
 
 1. "html"：字符串类型。一段基于 Tailwind CSS 编写的 HTML 片段。须包含：
-   - 学校+专业简介（结合考生位次给出录取可能性判断，语气专业亲切）
-   - "优势匹配点"区块（用绿色/blue标签展示，结合画像中的喜好、城市、预算等，至少3条）
-   - "潜在风险/注意事项"区块（用橙色/红色标签展示，实事求是，至少2条）
+   - 学校+专业简介，结合实际历史位次解释可比性，不预测录取概率
+   - "优势匹配点"区块，结合考生兴趣、城市偏好等有据可查的匹配点
+   - "待核实事项"区块，标明目标年度招生计划、选科、学费等缺少证据的事项
    - 一个空的占位 div（必须存在）：<div id="dynamic-chart-container" style="width:100%;height:350px;"></div>
 
 2. "chartConfig"：对象类型。一个合法的 Apache ECharts option 配置对象（可直接传入 echarts.setOption()）。
@@ -121,7 +121,8 @@ _DETAIL_SYSTEM = """你是一个专业的高考志愿填报顾问助手。
 - 禁止输出 ```json 代码块标记
 - 禁止在 JSON 之外输出任何文字
 - 禁止 HTML 中使用 <script> 或 <style> 标签
-- 禁止 chartConfig 中出现 JavaScript 函数（formatter 使用字符串模板）"""
+- 禁止 chartConfig 中出现 JavaScript 函数（formatter 使用字符串模板）
+- 仅基于传入的考生画像和数据库历史记录分析。没有资料支持的事实应明确待核实，不自行补写"""
 
 
 def _build_detail_user_prompt(profile: dict, university_data: dict) -> str:
@@ -145,15 +146,8 @@ def _build_detail_user_prompt(profile: dict, university_data: dict) -> str:
 ## 目标院校数据
 - 院校：{university_data['university_name']}（{university_data['city']}，{university_data['university_type']}）
 - 专业：{university_data['major_name']}，招生类型：{university_data['enrollment_type']}
-- 冲稳保判定：{university_data.get('tier', '稳')}
-- 录取风险说明：{university_data.get('tier_reason', '')}
-- 个性化匹配分：{university_data.get('fit_score', '')}
-- 推荐理由：{university_data.get('reason', '')}
-- 注意事项：{json.dumps(university_data.get('warnings', []), ensure_ascii=False)}
-- 近三年录取数据：
+- 最近三个已有记录年份的录取数据：
 {json.dumps(university_data['admission_history'], ensure_ascii=False, indent=2)}
-- 软性数据：
-{json.dumps(university_data.get('enriched_data', {}), ensure_ascii=False, indent=2)}
 
 请根据以上信息，严格按系统要求输出 JSON。"""
 
