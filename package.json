@@ -3,9 +3,11 @@
   "private": true,
   "scripts": {
     "build:css": "tailwindcss --content './frontend/*.html' --output ./frontend/styles.css --minify",
+    "build:vendor": "node -e \"const fs = require('node:fs'); const target = 'frontend/vendor/echarts/'; fs.mkdirSync(target + 'licenses', {recursive: true}); for (const [from, to] of [['dist/echarts.min.js', 'echarts.min.js'], ['LICENSE', 'LICENSE'], ['NOTICE', 'NOTICE'], ['licenses/LICENSE-d3', 'licenses/LICENSE-d3']]) fs.copyFileSync('node_modules/echarts/' + from, target + to);\"",
     "test:browser": "node frontend/tests/workbench.cjs"
   },
   "devDependencies": {
+    "echarts": "5.5.0",
     "playwright": "1.65.0",
     "tailwindcss": "3.4.17"
   }

@@ -312,8 +312,16 @@ async function main() {
     await page.goto(base + '/chat?profile=' + imported);
     await page.locator('#session-context').getByText(/浙江.*12,000/).waitFor();
     assert.equal(new URL(page.url()).searchParams.has('profile'), false);
+    const external = [];
+    await page.route(url => url.origin !== base, route => {
+      external.push(new URL(route.request().url()).hostname);
+      return route.abort();
+    });
     await page.goto(base + '/form');
     assert.equal(await page.locator('a[href="/chat"]').count(), 1);
+    await page.goto(base + '/result');
+    assert.equal(await page.evaluate(() => window.echarts?.version), '5.5.0');
+    assert.deepEqual(external, []);
     assert.deepEqual(errors, []);
     console.log('通过浏览器验收：注册登录、画像、录取对照、草稿恢复、确认、方案与下载、记忆、停止、归档、账号隔离、移动端。');
   } catch (error) {
