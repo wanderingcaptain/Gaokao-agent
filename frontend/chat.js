@@ -245,7 +245,10 @@ async function loadSessions() {
 function setDraft(text) {
   $('message').value = text;
   if (text) localStorage.setItem(key('draft'), text);
-  else localStorage.removeItem(key('draft'));
+  else {
+    localStorage.removeItem(key('draft'));
+    localStorage.removeItem(key('history_candidate'));
+  }
   renderControls();
 }
 
@@ -276,7 +279,9 @@ async function refreshSession() {
   current = data;
   const pendingKey = key('submission');
   const pending = stored(pendingKey);
-  if (pending && data.runs.some(run => run.request_id === pending.request_id)) acknowledge(pending, pendingKey, key('draft'));
+  if (pending && data.runs.some(run => run.request_id === pending.request_id)) {
+    acknowledge(pending, pendingKey, key('draft'), key('history_candidate'));
+  }
   const run = data.runs.find(item => !TERMINAL.has(item.status));
   if (run) setActive(run);
   renderConversation();
@@ -300,7 +305,11 @@ function renderControls() {
   $('archived-composer').hidden = !session?.archived;
   $('send').disabled = submitting || !!activeRun || !$('message').value.trim() || (!!sid && !current);
   $('send').textContent = submitting ? '正在提交…' : '发送 ↑';
-  $('composer-hint').textContent = activeRun ? '研究结束后可发送，草稿会自动保存。' : 'Enter 发送 · Shift + Enter 换行';
+  const reference = account && stored(key('history_candidate'));
+  const hasReference = reference?.prompt && $('message').value.includes(reference.prompt);
+  $('composer-hint').textContent = activeRun ? '研究结束后可发送，草稿会自动保存。' :
+    hasReference ? (reference.plan && $('message').value.trim() === reference.prompt ? '为所选候选拟一份研究草案' : '已关联所选历年录取候选') :
+    'Enter 发送 · Shift + Enter 换行';
   $('edit-profile').disabled = !!activeRun;
   $('cancel').disabled = !run || !!run.cancel_requested || cancelling;
   $('cancel').hidden = !run;
@@ -426,11 +435,12 @@ async function dismissConfirmation(id) {
   await refreshSession();
 }
 
-function acknowledge(pending, submissionKey, draftKey) {
+function acknowledge(pending, submissionKey, draftKey, historyKey) {
   if (stored(submissionKey)?.request_id !== pending.request_id) return;
   localStorage.removeItem(submissionKey);
   if (!pending.content.confirmed_ids.length && (localStorage.getItem(draftKey) || '').trim() === pending.content.text) {
     localStorage.removeItem(draftKey);
+    localStorage.removeItem(historyKey);
     if (account && draftKey === key('draft') && $('message').value.trim() === pending.content.text) $('message').value = '';
   }
 }
@@ -446,6 +456,7 @@ async function send(raw, confirmedIds = []) {
     if (!sid) {
       const version = selection;
       const emptyDraft = key('draft');
+      const emptyHistory = key('history_candidate');
       const creationKey = key('create', null);
       const request_id = localStorage.getItem(creationKey) || requestId();
       localStorage.setItem(creationKey, request_id);
@@ -455,6 +466,11 @@ async function send(raw, confirmedIds = []) {
       if (textInDraft) {
         localStorage.setItem(key('draft', data.id), textInDraft);
         localStorage.removeItem(emptyDraft);
+      }
+      const selectedHistory = localStorage.getItem(emptyHistory);
+      if (selectedHistory) {
+        localStorage.setItem(key('history_candidate', data.id), selectedHistory);
+        localStorage.removeItem(emptyHistory);
       }
       if (!sessions.some(session => session.id === data.id)) {
         sessions.unshift({id: data.id, title: '', archived: false, running: false});
@@ -467,12 +483,18 @@ async function send(raw, confirmedIds = []) {
     const target = sid;
     const submissionKey = key('submission', target);
     const draftKey = key('draft', target);
+    const historyKey = key('history_candidate', target);
     const content = {text, confirmed_ids: confirmedIds};
+    const history = stored(historyKey);
+    if (!confirmedIds.length && history?.prompt && text.includes(history.prompt)) {
+      content.history_candidate_id = history.id;
+      if (history.plan && text === history.prompt) content.history_plan = true;
+    }
     const saved = stored(submissionKey);
     const pending = JSON.stringify(saved?.content) === JSON.stringify(content) ? saved : {request_id: requestId(), content};
     localStorage.setItem(submissionKey, JSON.stringify(pending));
     const run = await api(sessionPath(target) + '/messages', {method: 'POST', body: {...content, request_id: pending.request_id}});
-    acknowledge(pending, submissionKey, draftKey);
+    acknowledge(pending, submissionKey, draftKey, historyKey);
     if (!TERMINAL.has(run.status)) setActive(run);
     await Promise.all([loadSessions(), refreshSession()]);
   } catch (error) {
@@ -667,6 +689,7 @@ function renderArtifacts(state) {
   for (const artifact of artifacts) {
     const card = button('', () => showArtifact(artifact, state), 'artifact-card');
     card.append(element('strong', artifactTitle(artifact)), element('span', artifactSummary(artifact).slice(0, 88)));
+    if (usesUnverifiedSources(artifact, state)) card.append(element('span', '含待核实网页摘要', 'artifact-tag'));
     if (artifact.profile_version !== state.profile_version) card.append(element('span', '历史条件版本', 'artifact-tag'));
     $('artifacts').append(card);
   }
@@ -696,6 +719,10 @@ function historyTable(rows) {
     rows.map(row => [row.year, row.min_rank, row.min_score, row.enrollment_count]), '历史录取记录');
 }
 
+function usesUnverifiedSources(artifact, state) {
+  return (artifact.source_ids || []).some(id => state.sources[id]?.verification === 'unverified');
+}
+
 function showArtifact(artifact, state) {
   const title = artifactTitle(artifact);
   currentArtifact = {artifact, title};
@@ -707,6 +734,9 @@ function showArtifact(artifact, state) {
     `考生条件第 ${artifact.profile_version} 版`,
     artifact.profile_version !== state.profile_version && '历史版本',
   ].filter(Boolean).join(' · '), 'subtle'));
+  if (usesUnverifiedSources(artifact, state)) {
+    content.append(element('p', '本成果引用待核实的网页摘要。适用年度、专业组、计划、选科和费用以正式原文为准。', 'subtle'));
+  }
   appendAnswer(content, artifactSummary(artifact));
   const policySources = new Map();
   if (artifact.rows) {
@@ -1070,13 +1100,19 @@ async function searchHistory(params, offset = 0) {
       const rank = candidate.admission_history.find(row => row.year === result.rank_year)?.min_rank;
       if (rank) card.append(element('p', `${result.rank_year} 年最低位次与输入位次相差 ${Math.abs(rank - Number(params.near_rank)).toLocaleString('zh-CN')} 名`, 'subtle'));
       card.append(historyTable(candidate.admission_history));
-      const ask = button('放入对话', () => {
-        const prompt = `请研究${candidate.university_name}的${candidate.major_name}（${candidate.subject_type}，${candidate.enrollment_type}），帮我核对历史位次与目标年度的报考条件。`;
+      function attachHistory(plan) {
+        const label = `${candidate.university_name}的${candidate.major_name}（${candidate.subject_type}，${candidate.enrollment_type}）`;
+        const prompt = plan ? `请为${label}拟一份带历史来源的志愿研究草案，先请求我确认调查。` :
+          `请研究${label}，帮我核对历史位次与目标年度的报考条件。`;
         if (!appendDraft(prompt)) return;
+        localStorage.setItem(key('history_candidate'), JSON.stringify({id: candidate.candidate_id, prompt, plan}));
+        renderControls();
         $('history-dialog').close();
         $('message').focus();
-      }, 'secondary');
-      ask.disabled = !!selectedSession()?.archived;
+      }
+      const ask = button('放入对话', () => attachHistory(false), 'secondary');
+      const plan = button('拟研究草案', () => attachHistory(true), 'secondary');
+      ask.disabled = plan.disabled = !!selectedSession()?.archived;
       const candidateKey = String(candidate.candidate_id);
       const compare = button('加入对照', () => {
         if (comparison.has(candidateKey)) comparison.delete(candidateKey);
@@ -1086,7 +1122,7 @@ async function searchHistory(params, offset = 0) {
       });
       compare.dataset.candidate = candidateKey;
       const actions = element('div', null, 'actions');
-      actions.append(ask, compare);
+      actions.append(ask, plan, compare);
       card.append(actions);
       body.append(card);
     }

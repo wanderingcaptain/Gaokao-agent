@@ -7,13 +7,16 @@ from urllib.parse import urlsplit
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 
 
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
 class ModelConfigurationError(ValueError):
     pass
 
 
 @dataclass(frozen=True)
 class ModelSettings:
-    provider: Literal["qwen", "deepseek"]
+    provider: Literal["qwen", "deepseek", "ollama"]
     model: str
     base_url: str
     api_key: str = field(repr=False)
@@ -23,12 +26,13 @@ class ModelSettings:
     @classmethod
     def from_env(cls):
         provider = os.getenv("LLM_PROVIDER", "qwen").strip().lower()
-        if provider not in {"qwen", "deepseek"}:
-            raise ValueError("LLM_PROVIDER 必须为 qwen 或 deepseek")
+        if provider not in {"qwen", "deepseek", "ollama"}:
+            raise ValueError("LLM_PROVIDER 必须为 qwen、deepseek 或 ollama")
         prefix = provider.upper()
         defaults = {
             "qwen": ("qwen-plus", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
             "deepseek": ("deepseek-v4-pro", "https://api.deepseek.com"),
+            "ollama": ("qwen3:4b", "http://127.0.0.1:11434/v1"),
         }
         model, url = defaults[provider]
         thinking = os.getenv("LLM_THINKING", "false").lower()
@@ -46,12 +50,14 @@ class ModelSettings:
 
 def create_client(settings: ModelSettings | None = None):
     settings = settings or ModelSettings.from_env()
-    if not settings.api_key or settings.api_key == "your_api_key_here":
+    hostname = urlsplit(settings.base_url).hostname
+    local_ollama = settings.provider == "ollama" and hostname in LOOPBACK_HOSTS
+    api_key = "ollama" if local_ollama else settings.api_key
+    if not api_key or api_key == "your_api_key_here":
         raise ModelConfigurationError(f"未配置 {settings.provider.upper()}_API_KEY 或 LLM_API_KEY")
     direct_hosts = {host.strip().lower() for host in os.getenv("LLM_NO_PROXY", "").split(",") if host.strip()}
-    hostname = urlsplit(settings.base_url).hostname
-    http_client = DefaultAsyncHttpxClient(trust_env=False) if hostname in direct_hosts else None
-    return AsyncOpenAI(api_key=settings.api_key, base_url=settings.base_url,
+    http_client = DefaultAsyncHttpxClient(trust_env=False) if local_ollama or hostname in direct_hosts else None
+    return AsyncOpenAI(api_key=api_key, base_url=settings.base_url,
                        timeout=settings.timeout, max_retries=0, http_client=http_client)
 
 
@@ -63,6 +69,8 @@ def request_options(settings: ModelSettings, *, temperature: float, max_tokens: 
         options["extra_body"] = {"enable_search": False, "enable_thinking": settings.thinking}
     elif settings.provider == "deepseek":
         options["extra_body"] = {"thinking": {"type": "enabled" if settings.thinking else "disabled"}}
+    elif settings.provider == "ollama":
+        options["extra_body"] = {"reasoning_effort": "low" if settings.thinking else "none"}
     else:
         raise ValueError("不支持的模型供应商")
     return options

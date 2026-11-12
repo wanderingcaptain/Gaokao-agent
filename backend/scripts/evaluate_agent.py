@@ -60,8 +60,6 @@ async def evaluate(case, mode='offline', max_calls=16):
     async def search(query):
         return {'ok':False,'error':'evaluation_search_disabled','sources':[]}
     settings=ModelSettings.from_env() if mode=='live' else ModelSettings('qwen','scripted','https://example.invalid','synthetic')
-    if mode=='live' and (not settings.api_key or settings.api_key=='your_api_key_here'):
-        raise ValueError('真实评测需要在本地配置模型密钥；不会以模拟结果替代真实结果')
     runtime=MultiAgentRuntime(state, settings=settings, max_calls=max_calls,
         client=ScriptedModel(script(case,state)) if mode=='offline' else None,
         search=search, query=lambda **kwargs:{'ok':True,'candidates':[candidate()],'total':1,'next_offset':None},
@@ -81,7 +79,8 @@ async def evaluate(case, mode='offline', max_calls=16):
             for aid in state['plans'] for row in state['artifacts'][aid]['rows'])
     metrics=runtime.execution.get('metrics',[])
     return {'case_id':case['id'],'mode':mode,'passed':all(checks.values()),'checks':checks,
-        'status':result['status'],'duration_seconds':round(time.monotonic()-start,3),
+        'status':result['status'],'provider_error':result.get('provider_error'),
+        'duration_seconds':round(time.monotonic()-start,3),
         'model_calls':runtime.calls,'tool_calls':runtime.tool_calls,
         'tokens':sum(m.get('usage',{}).get('total_tokens',0) for m in metrics),
         'failed_steps':sum(not m['ok'] for m in metrics),

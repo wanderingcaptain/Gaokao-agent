@@ -19,9 +19,14 @@ class ResearchTools:
         self.state['artifacts'][aid] = {'artifact_id': aid, 'role': role,
             'profile_version': self.state['profile_version'], 'created_at': time.time(), **deepcopy(body),
             'contract': envelope(self.state, aid, role, body)}
-        return {'artifact_id': aid, 'status': 'completed',
+        result = {'artifact_id': aid, 'status': 'completed', 'role': role,
             'summary': body.get('findings', body.get('strategy', '测试草案'))[:1200],
             'missing': body.get('missing', [])}
+        if role == 'admissions':
+            result['candidate_count'] = len(body.get('candidate_sources', {}))
+            if result['candidate_count']:
+                result['next_action'] = '若用户请求志愿草案，将此 artifact_id 传给 planner。'
+        return result
 
     def current_artifact(self, aid):
         item = self.state['artifacts'].get(aid)
@@ -193,9 +198,16 @@ class ResearchTools:
             return {'ok': True, 'candidates': [self.qualified_detail(c, profile, args.get('target_year')) for c in candidates],
                 'ordering': 'input_order', 'warning': '比较不代表推荐顺序或当年报考资格'}
         if name == 'request_confirmation':
+            if self.authorized:
+                raise ValueError('本轮已有调查授权。请按已确认范围执行，新增范围需另起一轮。')
             cid = 'confirm_' + uuid4().hex
             self.state['pending'][cid] = {'kind': 'research', 'text': args['text'],
+                'user_request': self.user_text,
                 'profile_version': self.state['profile_version']}
+            if self.history_candidate_id:
+                self.state['pending'][cid]['history_candidate_id'] = self.history_candidate_id
+                if self.history_plan:
+                    self.state['pending'][cid]['history_plan'] = True
             self.reply = {'status': 'waiting', 'text': args['text'], 'confirmation_id': cid}
             return self.reply
         if name == 'respond':
@@ -229,8 +241,10 @@ class ResearchTools:
         if name == 'delegate_task':
             if args['agent'] in {'admissions', 'planner'} and not self.authorized:
                 raise ValueError('本轮调查/表格更新尚未经用户确认')
-            for aid in args['artifact_ids']:
-                self.current_artifact(aid)
+            artifacts = [self.current_artifact(aid) for aid in args['artifact_ids']]
+            if args['agent'] == 'planner' and not any(
+                    item['role'] == 'admissions' and item.get('candidate_sources') for item in artifacts):
+                raise ValueError('先委派 admissions 查询历史录取，再把包含候选的招生报告编号放入 artifact_ids')
             if args.get('review_id'):
                 review = self.current_artifact(args['review_id'])
                 if review['role'] != 'reviewer':
@@ -267,21 +281,44 @@ class ResearchTools:
             basic = effective_profile(self.state).get('basic_info', {})
             if basic.get('province'):
                 args = {**args, 'province': basic['province']}
-            if basic.get('subject_type') and not args.get('subject_type'):
+            if basic.get('subject_type'):
                 args = {**args, 'subject_type': basic['subject_type']}
-            result = await asyncio.to_thread(self.query, **args)
+            anchor = self.history_candidate_id and not self.execution.get('history_candidate_queried')
+            if anchor:
+                result = await asyncio.to_thread(self.query, history_candidate_id=self.history_candidate_id,
+                    province=basic.get('province'), subject_type=basic.get('subject_type', ''), limit=1)
+            else:
+                result = await asyncio.to_thread(self.query, **args)
             if result.get('ok'):
+                if not anchor:
+                    result['filters'] = {key: args[key] for key in
+                        ('school', 'major', 'city', 'subject_type', 'enrollment_type', 'years') if args[key]}
                 candidates = result['candidates']
                 if len({c['candidate_id'] for c in candidates}) != len(candidates):
                     raise ValueError('查询返回重复候选')
                 self.store_sources([{'kind': 'database', **c} for c in candidates])
                 for candidate in candidates:
                     self.state['candidates'][str(candidate['candidate_id'])] = deepcopy(candidate)
+                if anchor and candidates:
+                    selected = candidates[0]
+                    self.execution['history_candidate_queried'] = True
+                    result['selected_candidate'] = selected['candidate_id']
+                    result['history_report'] = self.artifact(role, {
+                        'findings': f"已查到所选候选 {selected['university_name']} · {selected['major_name']} 的历史录取记录。",
+                        'source_ids': [selected['source_id']],
+                        'candidate_sources': {str(selected['candidate_id']): selected['source_id']},
+                        'missing': ['目标年度的招生计划、专业组、选科和费用待核实'],
+                    })
+                if result.get('total') == 0 and result.get('covered_years'):
+                    result['next_step'] = ('所选筛选项没有匹配记录。保留学校和考生科类，试用专业简称；'
+                                           '如果目标年份尚无历史数据，移除 years 后查询实际覆盖年份。')
             return result
         if name == 'submit_report':
             self.check_sources(args['source_ids'], read=True)
             if not args['source_ids'] and not args['missing']:
                 raise ValueError('无来源的报告必须说明资料缺失')
+            if any(self.state['sources'][sid].get('verification') == 'unverified' for sid in args['source_ids']):
+                args['missing'] = list(dict.fromkeys([*args['missing'], '网页摘要的适用年度与正式原文待核实']))
             candidate_sources = {str(self.state['sources'][sid]['candidate_id']): sid
                 for sid in args['source_ids'] if self.state['sources'][sid].get('kind') == 'database'}
             return self.artifact(role, {**args, 'candidate_sources': candidate_sources})

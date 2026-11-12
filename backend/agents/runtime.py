@@ -7,7 +7,8 @@ import json
 import time
 from copy import deepcopy
 from types import SimpleNamespace
-from openai import APIConnectionError, AuthenticationError, InternalServerError, PermissionDeniedError, RateLimitError
+from openai import (APIConnectionError, AuthenticationError, InternalServerError,
+                    NotFoundError, PermissionDeniedError, RateLimitError)
 from pathlib import Path
 from typing import TypedDict
 from pydantic import ValidationError
@@ -39,6 +40,8 @@ def provider_failure(exc):
         return 'quota', '模型服务额度不足。额度恢复后可以继续研究。'
     if isinstance(exc, ModelConfigurationError):
         return 'configuration', '模型服务尚未配置。配置完成后可以继续研究。'
+    if isinstance(exc, NotFoundError):
+        return 'model_not_found', '模型服务找不到配置的模型。请检查模型名称和安装状态后再试。'
     if isinstance(exc, (AuthenticationError, PermissionDeniedError)):
         return 'access', '模型服务拒绝了本轮请求。访问恢复后可以继续研究。'
     if isinstance(exc, RateLimitError):
@@ -68,6 +71,8 @@ class MultiAgentRuntime(ResearchTools):
         self.max_calls, self.max_searches = max_calls, max_searches
         self.calls = self.searches = self.tool_calls = 0
         self.authorized = False
+        self.history_candidate_id = None
+        self.history_plan = False
         self.messages = []
         self.delegation = None
         self.reply = None
@@ -95,9 +100,16 @@ class MultiAgentRuntime(ResearchTools):
         started = time.monotonic()
         if self.durable_mode:
             self.save_execution()
+        tools = tool_definitions(role)
+        if role == 'coordinator' and self.authorized:
+            unavailable = {'request_confirmation'}
+            if any(self.user_text == '确认：' + item.get('text', '')
+                   for item in self.execution.get('research_confirmations', {}).values()):
+                unavailable.add('propose_memory')
+            tools = [tool for tool in tools if tool['function']['name'] not in unavailable]
         try:
             response = await self.client.chat.completions.create(messages=messages,
-                tools=tool_definitions(role), tool_choice='auto',
+                tools=tools, tool_choice='auto',
                 **request_options(self.settings, temperature=.15, max_tokens=3000))
         except Exception as exc:
             if self.durable_mode:
@@ -137,6 +149,8 @@ class MultiAgentRuntime(ResearchTools):
                         terminal = result['agent']
                         # Fill placeholder, replace once specialist returns; tool-call pairing remains valid.
                         result = {'status': 'running'}
+                    elif name == 'query_candidates' and result.get('history_report'):
+                        terminal = result['history_report']
                     elif name in {'submit_report', 'submit_plan'}:
                         terminal = result
                     elif name in {'respond', 'request_confirmation'}:
@@ -162,6 +176,14 @@ class MultiAgentRuntime(ResearchTools):
                 'profile_version': self.state['profile_version'],
                 'research_authorized': self.authorized, 'task': task}
         if role == 'coordinator':
+            if self.authorized:
+                prompt = ('本轮调查已获得用户确认。按已确认的范围推进，不要再次要求确认同一范围。'
+                          '初次委派招生调查时，若没有现有研究产物，省略 artifact_ids。'
+                          '用户点击确认不代表新增偏好。\n\n' + prompt)
+                data['approved_research'] = [
+                    {'scope': item['text'], 'user_request': item.get('user_request')}
+                    for item in self.execution.get('research_confirmations', {}).values() if item.get('text')
+                ]
             data['artifacts'] = [{k: a.get(k) for k in ('artifact_id', 'role', 'profile_version', 'missing')}
                                  for a in self.state['artifacts'].values()][-30:]
         return [{'role': 'system', 'content': prompt}, {'role': 'user', 'content': json.dumps(data, ensure_ascii=False)}]
@@ -191,12 +213,16 @@ class MultiAgentRuntime(ResearchTools):
             facts = self.execution.get('observations', {}).get(role, [])[-20:] if not fresh else []
             messages.append({'role': 'user', 'content': json.dumps({'user_message': self.user_text,
                 'completed_tools': facts, 'resumed': bool(facts)}, ensure_ascii=False)})
+            if role == 'planner' and self.execution.get('history_plan_brief'):
+                messages.append({'role': 'user', 'content': json.dumps(self.execution['history_plan_brief'], ensure_ascii=False)})
             self.role_messages[role] = messages
         if role == 'coordinator':
             self.messages = self.role_messages[role]
 
     async def advance(self, graph_state):
         ex = self.execution
+        if ex['phase'] == 'history_plan_prepare':
+            return await self.prepare_history_plan()
         role = ex['role']
         self.activate(role)
         messages = self.role_messages[role]
@@ -259,6 +285,14 @@ class MultiAgentRuntime(ResearchTools):
             subtask['status'] = 'completed' if result.get('artifact_id') else 'failed'
             subtask['output_artifact_ids'] = [result['artifact_id']] if result.get('artifact_id') else []
             subtask['error'] = result.get('error')
+        if self.execution.get('history_plan') and self.delegation.get('call_id') == 'selected_history_plan':
+            artifact = self.state['artifacts'].get(result.get('artifact_id'), {})
+            if 'rows' in artifact:
+                self.reply = {'status': 'completed', 'text': '已保存所选候选的志愿研究草案。请在研究成果中查看历史来源与待核实的报考条件。'}
+            else:
+                self.reply = {'status': 'insufficient_data', 'text': '所选候选的历史记录已保存，当前资料或执行结果尚不足以形成方案。'}
+            self.execution['phase'] = 'done'
+            return
         call_id = self.delegation['call_id']
         for message in self.role_messages.get('coordinator', []):
             if message.get('role') == 'tool' and message.get('tool_call_id') == call_id:
@@ -268,6 +302,42 @@ class MultiAgentRuntime(ResearchTools):
                 observation['result'] = result
         self.activate('coordinator')
         self.execution.update(phase='model', pending=[], index=0, terminal=None)
+
+    async def prepare_history_plan(self):
+        # The authenticated UI selected a single database candidate and the user
+        # confirmed its scope. Prepare the evidence, then let the planner draft.
+        result = await self.execute('admissions', 'query_candidates', {})
+        report = result.get('history_report')
+        self.execution['metrics'].append({'step_id': 'history_plan_query', 'role': 'admissions',
+            'kind': 'tool', 'name': 'query_candidates', 'ok': bool(report), 'duration_ms': 0})
+        if not report:
+            self.reply = {'status': 'insufficient_data', 'text': '所选候选在当前省份和科类下已无可用历史记录，请重新选择。'}
+            self.execution['phase'] = 'done'
+            self.save_execution()
+            return {'next_role': 'end'}
+
+        aid = report['artifact_id']
+        self.delegation = await self.execute('coordinator', 'delegate_task', {
+            'agent': 'planner', 'goal': '为所选候选拟一份带历史来源的志愿研究草案。保留资格、计划和费用未知项。',
+            'artifact_ids': [aid],
+        })
+        self.delegation['call_id'] = 'selected_history_plan'
+        self.activate('planner', fresh=True)
+        evidence = await self.execute('planner', 'read_artifact', {'artifact_id': aid})
+        candidate = evidence['candidates'][0]
+        brief = {
+            '历史来源已读取，可以直接调用': 'submit_plan',
+            'candidate_id': candidate['candidate_id'], 'source_ids': [candidate['source_id']],
+            '院校': candidate['university_name'], '专业': candidate['major_name'],
+            '历年位次': [(row['year'], row['min_rank']) for row in candidate.get('admission_history', [])],
+            '待核实': report['missing'],
+        }
+        self.role_messages['planner'].append({'role': 'user', 'content': json.dumps(brief, ensure_ascii=False)})
+        self.execution['metrics'].append({'step_id': 'history_plan_read', 'role': 'planner',
+            'kind': 'tool', 'name': 'read_artifact', 'ok': True, 'duration_ms': 0})
+        self.execution.update(phase='model', pending=[], index=0, terminal=None, history_plan_brief=brief)
+        self.save_execution()
+        return {'next_role': 'continue'}
 
     def build_graph(self):
         graph = StateGraph(GraphState)
@@ -280,6 +350,8 @@ class MultiAgentRuntime(ResearchTools):
         if getattr(self, '_has_run', False) and self.execution.get('phase') == 'done':
             self.execution, self.role_messages, self.base_elapsed = {}, {}, 0
             self.recovered = False
+            self.history_candidate_id = None
+            self.history_plan = False
         self._has_run = True
         self.user_text = text
         self.durable_mode = True
@@ -289,6 +361,8 @@ class MultiAgentRuntime(ResearchTools):
             self.searches = self.execution.get('searches', 0)
             self.tool_calls = self.execution.get('tool_calls', 0)
             self.authorized = self.execution.get('authorized', False)
+            self.history_candidate_id = self.execution.get('history_candidate_id')
+            self.history_plan = bool(self.execution.get('history_plan'))
             self.delegation = self.execution.get('delegation')
             self.reply = self.execution.get('reply')
             self.activate(self.execution['role'])
@@ -311,6 +385,9 @@ class MultiAgentRuntime(ResearchTools):
             budget_values = {p['value'] for _, p in confirmations if p.get('field') == 'annual_budget_max'}
             if len(budget_values) > 1:
                 raise ValueError('不能同时确认互相冲突的预算提案')
+            history_references = {p.get('history_candidate_id') for _, p in confirmations} - {None}
+            if len(history_references) > 1:
+                raise ValueError('不同历史候选的调查请分别确认')
             resulting_version = self.state['profile_version'] + sum(p['kind'] == 'hard' for _, p in confirmations)
             if any(p['kind'] == 'research' and p['profile_version'] != resulting_version for _, p in confirmations):
                 raise ValueError('画像已变化，请重新确认调查范围')
@@ -323,8 +400,16 @@ class MultiAgentRuntime(ResearchTools):
                     if pending['profile_version'] != self.state['profile_version']:
                         raise ValueError('画像已变化，请重新确认调查范围')
                     self.authorized = True
+                    self.history_candidate_id = pending.get('history_candidate_id') or self.history_candidate_id
+                    self.history_plan = bool(pending.get('history_plan')) or self.history_plan
                 del self.state['pending'][cid]
             self.execution.update(initialized=True, role='coordinator', phase='model', observations={}, metrics=[])
+            if self.history_candidate_id:
+                self.execution['history_candidate_id'] = self.history_candidate_id
+                if self.history_plan:
+                    self.execution['history_plan'] = True
+                    if self.authorized:
+                        self.execution['phase'] = 'history_plan_prepare'
             if self.authorized:
                 self.execution['research_confirmations'] = {
                     cid: pending for cid, pending in confirmations if pending['kind'] == 'research'
@@ -346,7 +431,7 @@ class MultiAgentRuntime(ResearchTools):
         except (BudgetExceeded, TimeoutError):
             self.reply = {'status': 'degraded', 'text': '本轮预算已耗尽；已完成产物保留，未完成部分不能视为核实。'}
         except (APIConnectionError, RateLimitError, InternalServerError,
-                AuthenticationError, PermissionDeniedError, ModelConfigurationError) as exc:
+                AuthenticationError, PermissionDeniedError, NotFoundError, ModelConfigurationError) as exc:
             reason, message = provider_failure(exc)
             if reason in {'rate_limit', 'connection', 'service'}:
                 self.save_execution()

@@ -190,14 +190,32 @@ async function liveRun(page, base, submit) {
   assert.ok(response.ok(), '真实研究请求未被接受，HTTP ' + response.status());
   const {id} = await response.json();
   const token = await page.evaluate(() => localStorage.getItem('gaokao_auth_token'));
+  const headers = {Authorization: 'Bearer ' + token};
+  const runUrl = base + '/api/v2/agent/runs/' + id;
   const deadline = Date.now() + 310000;
   while (Date.now() < deadline) {
-    const status = await page.request.get(base + '/api/v2/agent/runs/' + id, {
-      headers: {Authorization: 'Bearer ' + token},
-    });
-    assert.ok(status.ok(), '无法读取真实研究状态，HTTP ' + status.status());
+    const status = await fetch(runUrl, {headers, signal: AbortSignal.timeout(6000)}).catch(() => null);
+    if (!status) {
+      await sleep(750);
+      continue;
+    }
+    assert.ok(status.ok, '无法读取真实研究状态，HTTP ' + status.status);
     const run = await status.json();
-    if (run.result) return run.result;
+    if (run.result) {
+      const metrics = await fetch(runUrl + '/metrics', {headers, signal: AbortSignal.timeout(6000)});
+      assert.ok(metrics.ok, '无法核对真实研究的工具记录');
+      const {steps} = await metrics.json();
+      if (run.status === 'waiting' || run.status === 'completed') {
+        assert.ok(steps.some(step => step.kind === 'model' && step.ok), '未记录成功的模型调用');
+      }
+      if (run.status === 'completed') {
+        assert.ok(steps.some(step => step.role === 'planner' && step.kind === 'model' && step.ok),
+          '未记录成功的方案模型调用');
+      }
+      const tools = steps.filter(step => step.kind === 'tool').map(step => step.name + (step.ok ? '' : '（失败）'));
+      console.log('真实研究状态 ' + run.status + ' · 工具 ' + (tools.join('、') || '无'));
+      return run.result;
+    }
     await sleep(750);
   }
   throw new Error('真实研究在 310 秒内未结束');
@@ -211,11 +229,12 @@ async function verifyLive(page, base) {
   await page.locator('#history-form [name=major]').fill('计算机');
   await page.getByRole('button', {name: '查询', exact: true}).click();
   await page.locator('#history-results').getByRole('heading', {name: /北京邮电大学/}).first().waitFor();
-  await page.locator('#history-dialog [data-close]').click();
+  await page.getByRole('button', {name: '拟研究草案', exact: true}).first().click();
+  const draft = await page.locator('#message').inputValue();
+  assert.match(draft, /北京邮电大学/);
   console.log('真实历史库查询通过');
 
-  const first = await liveRun(page, base, () => send(page,
-    '请按我已保存的考生条件研究北京邮电大学的计算机相关专业，查数据库并给出一份带历史来源的志愿草案。请先请求我确认调查。'));
+  const first = await liveRun(page, base, () => send(page, draft));
   await page.locator('#messages').getByText(first.text, {exact: true}).waitFor();
   assert.equal(first.status, 'waiting', '真实模型尚未到达调查确认环节。' + (first.provider_error || first.status));
   assert.ok(first.confirmation_id, '真实模型未提供调查确认编号');
@@ -224,7 +243,9 @@ async function verifyLive(page, base) {
   assert.equal(finished.status, 'completed', '真实模型尚未完成方案。' + (finished.provider_error || finished.status));
   await page.getByRole('button', {name: /志愿方案 · 第 \d+ 版/}).first().click();
   await page.getByRole('table', {name: '有序候选'}).waitFor();
+  assert.match(await page.getByRole('table', {name: '有序候选'}).innerText(), /待核实/);
   await page.getByRole('heading', {name: /资料来源/}).waitFor();
+  await page.getByRole('table', {name: '历史录取记录'}).first().waitFor();
   assert.match(await page.locator('#artifact-content').innerText(), /北京邮电大学/);
   const download = page.waitForEvent('download');
   await page.locator('#export-artifact').click();
@@ -291,11 +312,12 @@ async function main() {
   server.stderr.on('data', data => { output += data; });
   let browser;
   try {
-    await until(async () => (await fetch(base + '/api/health').catch(() => null))?.ok, '测试服务启动');
+    await until(async () => (await fetch(base + '/api/health', {signal: AbortSignal.timeout(1500)}).catch(() => null))?.ok,
+      '测试服务启动', live ? 60000 : 30000);
     browser = await chromium.launch({channel: process.env.GAOKAO_TEST_BROWSER || undefined, headless: true});
     const context = await browser.newContext({viewport: {width: 1440, height: 900}, acceptDownloads: true});
     const page = await context.newPage();
-    page.setDefaultTimeout(12000);
+    page.setDefaultTimeout(live ? 30000 : 12000);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(base);

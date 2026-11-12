@@ -41,6 +41,8 @@ class Message(Input):
     request_id: str = Field(min_length=1, max_length=100)
     text: str = Field(min_length=1, max_length=4000)
     confirmed_ids: list[str] = Field(default_factory=list, max_length=10)
+    history_candidate_id: int | None = Field(default=None, gt=0)
+    history_plan: Literal[True] | None = None
 
 
 class MemoryEdit(Input):
@@ -220,9 +222,11 @@ def read(sid: str, user: User = Depends(get_current_user)):
 @router.post('/sessions/{sid}/messages')
 async def message(sid: str, body: Message, response: Response, wait: bool = False,
                   user: User = Depends(get_current_user)):
-    payload = body.model_dump()
+    payload = body.model_dump(exclude_none=True)
     if len(set(body.confirmed_ids)) != len(body.confirmed_ids):
         raise HTTPException(422, '确认编号重复')
+    if body.history_plan and not body.history_candidate_id:
+        raise HTTPException(422, '请先选择一个历史录取候选')
     with SessionLocal() as db:
         user_write_lock(db, user.id)
         row = owned(db, sid, user.id)
@@ -238,9 +242,20 @@ async def message(sid: str, body: Message, response: Response, wait: bool = Fals
                 raise HTTPException(409, '恢复归档对话后可继续研究')
             state = load_state(db, row)
             knowledge.refresh(db, user.id, state)
+            if body.history_candidate_id is not None:
+                if body.confirmed_ids:
+                    raise HTTPException(422, '确认时将沿用原候选，请勿同时选择其他候选')
+                reference = db.get(AdmissionRecord, body.history_candidate_id)
+                basic = state.get('profile', {}).get('basic_info', {})
+                if not reference or (basic.get('province') and basic['province'] != reference.province) or (
+                        basic.get('subject_type') and basic['subject_type'] != reference.subject_type):
+                    raise HTTPException(422, '所选历史候选与本对话的省份或科类不匹配')
             if any(state['pending'].get(cid, {}).get('profile_version') != state['profile_version']
                    for cid in body.confirmed_ids):
                 raise HTTPException(422, '确认项已使用或过期，请查看当前确认项')
+            confirmed_candidates = {state['pending'][cid].get('history_candidate_id') for cid in body.confirmed_ids}
+            if len(confirmed_candidates - {None}) > 1:
+                raise HTTPException(422, '不同历史候选的调查请分别确认')
             if row.active_request_id:
                 raise HTTPException(409, '会话已有活动请求')
             rid = uuid4().hex

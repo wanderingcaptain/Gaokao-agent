@@ -77,7 +77,7 @@ async def search_web(query):
 
 def query_history(major='', offset=0, *, school='', city='', subject_type='',
                   enrollment_type='', years=None, limit=20, province='广东',
-                  near_rank=None, target_year=None):
+                  near_rank=None, target_year=None, history_candidate_id=None):
     """Page program groups, then fetch their complete history as immutable snapshots.
 
     Year filters select groups; histories retain all recorded years so a narrower
@@ -87,6 +87,9 @@ def query_history(major='', offset=0, *, school='', city='', subject_type='',
                  subject_type=subject_type, enrollment_type=enrollment_type,
                  years=years or [], limit=limit)
     with SessionLocal() as db:
+        if history_candidate_id is not None and not province:
+            selected = db.get(AdmissionRecord, history_candidate_id)
+            province = selected.province if selected else ''
         year_query = (select(AdmissionRecord.year)
                       .join(University, University.university_id == AdmissionRecord.university_id)
                       .where(AdmissionRecord.province == province))
@@ -118,6 +121,8 @@ def query_history(major='', offset=0, *, school='', city='', subject_type='',
         # HAVING preserves a stable group ID even if only selected years match.
         if args.years:
             base = base.having(func.max(AdmissionRecord.year.in_(args.years)) == 1)
+        if history_candidate_id is not None:
+            base = base.having(candidate_id == history_candidate_id)
         ordering = [candidate_id]
         if near_rank is not None:
             observed_rank = func.max(case((AdmissionRecord.year == rank_year, AdmissionRecord.min_rank)))

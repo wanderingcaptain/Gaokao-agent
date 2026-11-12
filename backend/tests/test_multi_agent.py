@@ -87,10 +87,18 @@ class RuntimeTests(unittest.TestCase):
         self.assertEqual(reply['status'], 'waiting')
         self.assertFalse(state['trace'][0]['ok'])
         self.assertEqual(len(state['artifacts']), 0)
-        followup = self.runtime(state, [('respond', {'text': '收到确认。'})])
-        asyncio.run(followup.run('确认', [reply['confirmation_id']]))
+        followup = self.runtime(state, [('request_confirmation', {'text': '重复确认'}), ('respond', {'text': '收到确认。'})])
+        asyncio.run(followup.run('确认：是否开始选校调查？', [reply['confirmation_id']]))
         self.assertTrue(followup.authorized)
         self.assertNotIn(reply['confirmation_id'], state['pending'])
+        context = followup.client.requests[0]['messages']
+        self.assertIn('本轮调查已获得用户确认', context[0]['content'])
+        self.assertEqual(json.loads(context[1]['content'])['approved_research'],
+                         [{'scope': '是否开始选校调查？', 'user_request': '我喜欢计算机'}])
+        exposed = {tool['function']['name'] for tool in followup.client.requests[0]['tools']}
+        self.assertFalse({'request_confirmation', 'propose_memory'} & exposed)
+        self.assertFalse(state['trace'][-2]['ok'])
+        self.assertEqual(state['pending'], {})
 
     def test_permissions_and_fabricated_sources(self):
         runtime = self.runtime(new_state())
@@ -102,6 +110,54 @@ class RuntimeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 await runtime.execute('coordinator', 'read_artifact', {'artifact_id': 'another-session'})
         asyncio.run(check())
+
+    def test_planner_delegation_requires_admissions_evidence(self):
+        runtime = self.runtime(new_state())
+        runtime.authorized = True
+        with self.assertRaisesRegex(ValueError, '先委派 admissions'):
+            asyncio.run(runtime.execute('coordinator', 'delegate_task', {'agent': 'planner', 'goal': '生成志愿草案'}))
+        self.assertEqual(runtime.state.get('subtasks', {}), {})
+
+    def test_history_reference_survives_confirmation_and_uses_exact_candidate(self):
+        state = new_state()
+        first = self.runtime(state, [('request_confirmation', {'text': '调查选定候选？'})])
+        first.history_candidate_id = 1
+        reply = asyncio.run(first.run('请研究此历史候选'))
+        approval = reply['confirmation_id']
+        self.assertEqual(state['pending'][approval]['history_candidate_id'], 1)
+        queries = []
+
+        def query(**kwargs):
+            queries.append(kwargs)
+            return {'ok': True, 'candidates': [candidate()]}
+
+        second = self.runtime(state, [
+            ('delegate_task', {'agent': 'admissions', 'goal': '查选定候选'}),
+            ('query_candidates', {'school': '误填的筛选条件'}),
+            ('respond', {'text': '已保存招生报告'}),
+        ], query=query)
+        asyncio.run(second.run('确认：调查选定候选？', [approval]))
+        self.assertEqual(queries, [{'history_candidate_id': 1, 'province': None, 'subject_type': '', 'limit': 1}])
+        self.assertEqual(next(iter(state['artifacts'].values()))['source_ids'], ['db1'])
+
+    def test_explicit_history_plan_runs_planner_with_confirmed_database_evidence(self):
+        state = new_state()
+        first = self.runtime(state, [('request_confirmation', {'text': '拟定所选候选草案？'})])
+        first.history_candidate_id = 1
+        first.history_plan = True
+        reply = asyncio.run(first.run('为所选候选拟草案'))
+        approval = reply['confirmation_id']
+        self.assertTrue(state['pending'][approval]['history_plan'])
+        self.assertEqual(state['plans'], [])
+
+        followup = self.runtime(state, [('submit_plan', {'strategy': '以历史为参考', 'rows': [{
+            'candidate_id': 1, 'reason': '符合专业兴趣', 'tradeoffs': '当年资格待核实', 'source_ids': ['db1'],
+        }]})], query=lambda **kwargs: {'ok': True, 'candidates': [candidate()]})
+        result = asyncio.run(followup.run('确认：拟定所选候选草案？', [approval]))
+        self.assertEqual(result['status'], 'completed')
+        plan = state['artifacts'][state['plans'][0]]
+        self.assertEqual(plan['rows'][0]['eligibility'], 'unknown')
+        self.assertEqual(plan['source_ids'], ['db1'])
 
     def test_memory_quote_hard_constraint_and_staleness(self):
         state = new_state()

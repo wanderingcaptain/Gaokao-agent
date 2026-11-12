@@ -131,6 +131,8 @@ class RunWorker:
             return
         runtime = self.runtime_factory(state, execution=execution,
             persist=lambda current, cursor: self.persist(run_id, current, cursor))
+        runtime.history_candidate_id = payload.get('history_candidate_id')
+        runtime.history_plan = bool(payload.get('history_plan'))
         task = asyncio.create_task(runtime.run(payload['text'], payload.get('confirmed_ids', [])))
         heartbeat = asyncio.create_task(self.heartbeat(run_id, task))
         try:

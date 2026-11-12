@@ -6,8 +6,9 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 import httpx
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, NotFoundError
 
+from agents.runtime import provider_failure
 from providers.client import ModelSettings, request_options, create_client, assistant_message
 from services.agent_service import run_recommendation_agent
 from services.llm_service import generate_detail_ui
@@ -37,13 +38,38 @@ class ProviderTests(unittest.TestCase):
                 ModelSettings.from_env()
 
     def test_parameters_do_not_leak_between_providers(self):
-        for provider in ("qwen", "deepseek"):
+        for provider in ("qwen", "deepseek", "ollama"):
             for thinking in (False, True):
                 s = ModelSettings(provider, "model", "https://example.invalid", "test", thinking)
                 opts = request_options(s, temperature=.15, max_tokens=100)
                 self.assertEqual("temperature" in opts, not thinking)
                 self.assertEqual("enable_search" in opts["extra_body"], provider == "qwen")
                 self.assertEqual("thinking" in opts["extra_body"], provider == "deepseek")
+                self.assertEqual("reasoning_effort" in opts["extra_body"], provider == "ollama")
+
+    def test_local_ollama_uses_a_dummy_key_and_bypasses_proxy(self):
+        async def run():
+            with patch.dict(os.environ, {"LLM_PROVIDER": "ollama", "LLM_API_KEY": "remote-key"}, clear=True), \
+                 patch("providers.client.DefaultAsyncHttpxClient", wraps=httpx.AsyncClient) as http_client:
+                settings = ModelSettings.from_env()
+                self.assertEqual(settings.model, "qwen3:4b")
+                async with create_client(settings) as client:
+                    self.assertEqual(client.api_key, "ollama")
+                http_client.assert_called_once_with(trust_env=False)
+        asyncio.run(run())
+
+    def test_remote_ollama_requires_its_own_key(self):
+        with patch.dict(os.environ, {"LLM_PROVIDER": "ollama", "OLLAMA_BASE_URL": "https://example.invalid/v1",
+                                     "QWEN_API_KEY": "qwen-only"}, clear=True):
+            with self.assertRaises(ValueError):
+                create_client()
+
+    def test_missing_model_failure_uses_public_guidance(self):
+        response = httpx.Response(404, request=httpx.Request("POST", "http://localhost/v1/chat/completions"))
+        code, message = provider_failure(NotFoundError("upstream-private", response=response, body=None))
+        self.assertEqual(code, "model_not_found")
+        self.assertIn("检查模型名称和安装状态", message)
+        self.assertNotIn("upstream-private", message)
 
     def test_real_sdk_tool_history_and_reasoning_round_trip(self):
         async def run(provider):

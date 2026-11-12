@@ -2,7 +2,7 @@
 
 首页 `/` 和 `/chat` 打开志愿研究室，传统填报表单可从 `/form` 进入。两个入口使用同一个账号。
 研究室支持多对话、草稿恢复、后台研究、方案版本、来源查看和下载。可以先探索专业，有了省位次后再补考生条件。
-历年录取查询、位次排序和候选对照可直接使用数据库。对话研究可配置 Qwen 或 DeepSeek。
+历年录取查询、位次排序和候选对照可直接使用数据库。对话研究可配置 Qwen、DeepSeek 或本机 Ollama。
 
 任务恢复、数据迁移和审核机制见 [架构说明](docs/architecture-v3.md)。工具权限和数据口径见 [工具清单](docs/tools.md)。
 
@@ -38,7 +38,7 @@ v2 默认启动数据库队列工作任务，浏览器断开不取消执行；�
 
 1. 注册或登录后，点击「新对话」，从兴趣、院校或专业问题开始。每段对话的草稿保存在当前浏览器。
 2. 在「我的考生条件」中填写省份、科类、目标年与已知位次。传统表单结果页也可用「带着画像进入 Agent」创建独立画像对话。
-3. 用「查历年录取」按院校或专业搜索。填入省位次可按目标年前最近有位次记录的一年排序，也可对照最多三项。
+3. 用「查历年录取」按院校或专业搜索。填入省位次可按目标年前最近有位次记录的一年排序，也可对照最多三项。选中候选后可放入对话，或点击「拟研究草案」进入确认流程。
 4. 研究执行期间可以切换对话、刷新或停止。报告、审核、来源和方案版本在「研究成果」中查看和下载。
 5. 在「对话设置」中改名、复制链接或归档，链接只对该账号可用。已归档的对话可恢复。
 
@@ -76,8 +76,16 @@ AGENT_MAX_STEPS 和 AGENT_PAGE_SIZE 可配置。超过预算或模型失败时�
 当前规则只使用现有数据支持的限制与历史位次。预算、具体选科资格、当年招生章程和计划待核实；
 risk_score 是历史启发式指标，不是录取概率。v1 无联网检索；v2 可配置 Tavily 搜索。系统不自动填报。
 
-Qwen 工具调用依据：[阿里云 Function Calling 文档](https://www.alibabacloud.com/help/zh/model-studio/qwen-function-calling)。
-真实调用需要你自己的 API Key；不把模拟模型测试当作实际模型联调通过。
+Qwen 和 DeepSeek 使用各自的 API Key。也可以显式选择本机 Ollama，在运行 Ollama 的终端环境中准备模型：
+
+```bash
+ollama pull qwen3:4b
+```
+
+在 `backend/.env` 中设置 `LLM_PROVIDER=ollama`，然后重启工作台。默认连接 `http://127.0.0.1:11434/v1`，
+本机服务无需配置密钥。可通过 `OLLAMA_MODEL` 选择支持工具调用的模型。若此前设置了通用 `LLM_BASE_URL` 或 `LLM_MODEL`，
+请同步更新或清空这些覆盖项。配置的 Tavily 仍用于查询公开关键词。
+[Ollama 兼容接口](https://docs.ollama.com/api/openai-compatibility)
 
 ## 验证
 
@@ -98,5 +106,6 @@ npm run test:browser
 本机真实数据和供应商探测结果见 [工作台验收记录](docs/workbench-acceptance.md)。
 
 页面样式已编译到 frontend/styles.css，不依赖 Tailwind 在线 CDN。
+传统结果页使用仓库内的 ECharts。更新 ECharts 版本后执行 `npm run build:vendor` 重新生成静态文件。
 修改页面样式类后执行 `npm ci && npm run build:css`，并一并提交生成的 CSS。
 任务版本中的详情报告使用对应画像版本，避免调整条件后仍读取初始画像。
